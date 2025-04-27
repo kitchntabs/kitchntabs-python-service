@@ -1,0 +1,24 @@
+WS_HOST: "ws.pinoywok.cl"
+WS_PORT: 443
+WS_SCHEME: "https"
+
+API_HOST: "api.pinoywok.cl"
+API_PORT: ""
+API_SCHEME: "https"
+
+APP: "dash"
+
+AUTH_ENDPOINT: "api/ws/auth"
+
+LOGS_PATH: "./logs/"
+
+POPPLER_PATH: ""
+PRINTER_VENDOR: 0x04b8
+PRINTER_PRODUCT: 0x0e20
+LIBUSB_PATH: ""
+WKHTMLTOPDF_PATH: ""
+ACROBAT_PATH: ""
+GOOGLE_MAPS_API_KEY: ""
+JUMPSELLER_SECRET_KEY: ""
+TWILIO_ID: ""
+TWILIO_TOKEN: ""

@@ -1,0 +1,18 @@
+{
+    "name": "pinoywok-python-service",
+    "version": "1.0.0",
+    "description": "PinoyWok Python Service",
+    "author": "Francisco Aranda <farandal@gmail.com>",
+    "license": "MIT",
+    "private": true,
+    "scripts": {
+      "dev": "python3.9 ./src/ws_service.py 'USER_TOKEN' ./config.dev.yaml",
+      "build": "pyinstaller ./src/ws_service.py --onefile --distpath ./service --add-data ./config.prod.yaml:. --add-data pw_env/lib/python3.9/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm"
+    },
+    "info": {
+        "USER_TOKEN": "A valid dash user token"
+    },
+    "depenencies" : {
+        
+    }
+}
