@@ -124,20 +124,25 @@ async def get_auth_token(socket_id, channel):
     
     """Get authentication token for private channels"""
     log(AUTH_URL)
-    TOKEN = _args.token[1:-1]    
+    TOKEN = _args.token
+    # mac has ius_args.token[1:-1]    
     try:
         async with aiohttp.ClientSession() as session:
+            headers = {
+                "Authorization": f"Bearer {TOKEN}",                    
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            json_data = {
+                "socket_id": socket_id,
+                "channel_name": channel.replace("null", "1") if "null" in channel else channel          
+            }
+            log(f"POST Headers: {json.dumps(headers, indent=2)}")
+            log(f"POST JSON: {json.dumps(json_data, indent=2)}")
             async with session.post(
                 AUTH_URL,
-                headers={
-                    "Authorization": f"Bearer {TOKEN}",                    
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                json={
-                    "socket_id": socket_id,
-                    "channel_name": channel
-                }
+                headers=headers,
+                json=json_data
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -147,7 +152,7 @@ async def get_auth_token(socket_id, channel):
                     log(f"Failed to get auth token. Status: {response.status}")
                     error_text = await response.text()
                     log(f"Error: {error_text}")
-                    return None
+                    return None    
     except Exception as e:
         log(f"Error getting auth token: {e}")
         return None

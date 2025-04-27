@@ -15,14 +15,17 @@ pyenv local 3.9.16
 
 ```sh
 # Create a python virtual env and install requirements / dependencies
-python3.9 -m venv pw_env
-source ./pw_env/bin/activate
+python3.9 -m venv pw_python_env
+source ./pw_python_env/bin/activate
 pip install numpy==1.24.3 cython wheel setuptools
 pip install --only-binary=scipy scipy==1.11.4
 pip install -r ./requirements.txt
 ```
 
 ### Windows PowerShell & Python 3.12+
+
+# Note: Open a powershell wiundow with administrator privileges.
+# Some commands do not run properly on VSCode terminal
 
 Enable long paths:
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
@@ -47,12 +50,21 @@ VStudio C Compiler tools to compile the node zmq library
 
 
 #### Authorize env activation:
+
+
+- some packages might required to be compiled, download visual studio build tool  https://visualstudio.microsoft.com/visual-cpp-build-tools/
+- Install python 3.9 from windows store
+py --version
+py -3.9.13 --version 
+
 set-executionpolicy RemoteSigned -Scope CurrentUser
+New-Alias -Name python -Value python3
 
 #### Create the environment
-python -m venv ./pw_python_env
+py -m venv ./pw_python_env
 .\pw_python_env\Scripts\activate.ps1
-python -m pip install -r ./pw_python_env.txt
+py -m pip install -r ./requirements.txt
+py -m pip install pywin32    
 
 - Notes: 
 - - TODO: pipinstaller is included in the requirements, though it should not, and should be globally scoped installed, not required in the venv.

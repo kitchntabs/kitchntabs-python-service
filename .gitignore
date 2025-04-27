@@ -1,6 +1,6 @@
 build
 log.txt
-pw_env
+pw_python_env
 service
 ws_service.spec
 
