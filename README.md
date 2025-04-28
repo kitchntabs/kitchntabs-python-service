@@ -15,12 +15,17 @@ pyenv local 3.9.16
 
 ```sh
 # Create a python virtual env and install requirements / dependencies
-python3.9 -m venv pw_python_env
-source ./pw_python_env/bin/activate
+python3.9 -m venv pw_env
+source ./pw_env/bin/activate
 pip install numpy==1.24.3 cython wheel setuptools
 pip install --only-binary=scipy scipy==1.11.4
 pip install -r ./requirements.txt
 ```
+
+# notes:
+
+- test:
+- ./service/ws_service test_token test_channel config.prod.mac.yaml log.txt
 
 ### Windows PowerShell & Python 3.12+
 
