@@ -1,3 +1,4 @@
+APP_NAME: "pinoywok"
 WS_HOST: "localhost"
 WS_PORT: 6001
 WS_SCHEME: "http"
