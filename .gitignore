@@ -16,3 +16,4 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+/pw_env
