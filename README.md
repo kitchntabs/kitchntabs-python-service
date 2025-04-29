@@ -66,10 +66,11 @@ set-executionpolicy RemoteSigned -Scope CurrentUser
 New-Alias -Name python -Value python3
 
 #### Create the environment
-py -m venv ./pw_python_env
-.\pw_python_env\Scripts\activate.ps1
+py -m venv ./pw_env
+.\pw_env\Scripts\activate.ps1
 py -m pip install -r ./requirements.txt
-py -m pip install pywin32    
+py -m pip install pywin32   
+py -m pip install pyinstaller
 
 - Notes: 
 - - TODO: pipinstaller is included in the requirements, though it should not, and should be globally scoped installed, not required in the venv.

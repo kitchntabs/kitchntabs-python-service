@@ -42,8 +42,21 @@ from pinoywok.parsers import jumpseller
 import pinoywok.helpers
 from pinoywok.logging import log
 import subprocess
-from pinoywok.audio_player import AudioPlayer
-audio_player = AudioPlayer()
+# Initialize audio player with error handling
+#try:
+#    from pinoywok.audio_player import AudioPlayer
+#    audio_player = AudioPlayer()
+#    _AUDIO_AVAILABLE = True
+#except Exception as e:
+#    print(f"Warning: Audio player initialization failed: {e}")
+#    # Create a dummy audio player that does nothing
+#    class DummyAudioPlayer:
+#        def __getattr__(self, name):
+#            return lambda *args, **kwargs: None
+#    audio_player = DummyAudioPlayer()
+#    _AUDIO_AVAILABLE = False
+
+
 
 from pinoywok.config import config
 
