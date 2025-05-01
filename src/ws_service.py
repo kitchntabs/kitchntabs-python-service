@@ -1,4 +1,5 @@
 from typing import Dict
+from pinoywok.audio_player import AudioPlayer
 import pinoywok.config
 from pinoywok.logging import log
 import pinoywok.helpers
@@ -99,15 +100,25 @@ async def websocket_handler(message_bytes):
     # Check if message is a JSON string or a plain string
     try:
         json_message = json.loads(message)
-        log("JSON Message")
-        log(json.dumps(json_message, indent=2))
+        #log("JSON Message")
+        #log(json.dumps(json_message, indent=2))
         
         # Process the message based on type if needed
         if "type" in json_message:
+           
             message_type = json_message["type"]
+            log(f"Message Type: {message_type}")
             if message_type == "print":
                 #asyncio.create_task(asyncio.to_thread(print_order, _args.token[1:-1], json_message, _args.log, _args.config, True, True))
                 print_order( json_message,_args.token[1:-1], _args.log, _args.config)
+            if "message" in message_type:
+                
+                audio_player = AudioPlayer()
+                message = json_message.get("data", {}).get("message", "")
+                log(f"Message: {message}")
+                audio_player.thread_generate_audio(message, "notification.mp3")
+
+                
             
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action

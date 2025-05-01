@@ -26,6 +26,7 @@ pip install -r ./requirements.txt
 
 - test:
 - ./service/ws_service test_token test_channel config.prod.mac.yaml log.txt
+- C:\Users\USER\DASH\dash-frontend\release\win-unpacked\resources\python-service\ws_service.exe test_token test_channel C:\Users\USER\DASH\dash-frontend\release\win-unpacked\resources\python-service\config.prod.yaml log.txt
 
 ### Windows PowerShell & Python 3.12+
 
