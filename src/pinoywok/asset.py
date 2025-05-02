@@ -8,7 +8,7 @@ def pdf2png(id, pdf_path, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     print(pdf_path)
-    images = convert_from_path(pdf_path,300,poppler_path=config.get_poppler_path())
+    images = convert_from_path(pdf_path,300,poppler_path=config.get('POPPLER_PATH'))
     saved_files = []
 
     for i, image in enumerate(images):

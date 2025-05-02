@@ -23,7 +23,8 @@ class Config:
             if isinstance(value, dict) and k in value:
                 value = value[k]
             else:
-                raise KeyError(f"Config key '{key}' not found")
+                print(f"Config key '{key}' not found")
+                return None
         return value
     
     def get(self,key):
@@ -35,7 +36,9 @@ class Config:
             if isinstance(value, dict) and k in value:
                 value = value[k]
             else:
-                raise KeyError(f"Config key '{key}' not found")
+                #raise KeyError(f"Config key '{key}' not found")
+                print(f"Config key '{key}' not found")
+                return None
         return value
     
     

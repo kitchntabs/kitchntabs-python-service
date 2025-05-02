@@ -109,16 +109,15 @@ async def websocket_handler(message_bytes):
             message_type = json_message["type"]
             log(f"Message Type: {message_type}")
             if message_type == "print":
+                tab_id = json_message.get("data", {}).get("tab_id", "")
+                log(f"Tab id: {tab_id}")
                 #asyncio.create_task(asyncio.to_thread(print_order, _args.token[1:-1], json_message, _args.log, _args.config, True, True))
-                print_order( json_message,_args.token[1:-1], _args.log, _args.config)
+                print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)            
             if "message" in message_type:
-                
                 audio_player = AudioPlayer()
                 message = json_message.get("data", {}).get("message", "")
                 log(f"Message: {message}")
                 audio_player.thread_generate_audio(message, "notification.mp3")
-
-                
             
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action

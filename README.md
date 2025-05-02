@@ -84,3 +84,12 @@ pipinstaller not copying assets requires by escpos.
 pyinstaller ./pw_ws_service/ws_service.py --distpath ./pinoywok-service --add-data "config.yaml:."  --add-data "pw_python_env/Lib/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm 
 
 mkdir -p logs
+
+# TEST PRINT
+{
+    "token": ,
+    "channel": "private-tenant.1.system"
+}
+
+.\pw_env\Scripts\activate.ps1
+py ./src/print_service.py 39  "107|TbJOsinJS3X3kZ6sO9s7tNc0wKbdYh67lY2FRRmZ7bf8b610" .\config.prod.yaml log.txt

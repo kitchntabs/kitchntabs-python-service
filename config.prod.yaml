@@ -19,7 +19,7 @@ AUTH_ENDPOINT: "api/ws/auth"
 
 LOGS_PATH: "./logs/"
 
-POPPLER_PATH: ""
+POPPLER_PATH: C:\poppler-24.08.0\Library\bin
 PRINTER_VENDOR: 0x04b8
 PRINTER_PRODUCT: 0x0e20
 LIBUSB_PATH: ""

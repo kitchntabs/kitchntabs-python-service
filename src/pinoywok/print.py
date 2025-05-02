@@ -10,6 +10,9 @@ import json
 import requests
 from pdf2image import convert_from_path
 from escpos.printer import Usb, Network, File
+import usb.backend.libusb1 as libusb1
+
+
 
 WINDOWS_OS = False
 if platform.system() == 'Windows' or os.name == 'nt':
@@ -38,65 +41,17 @@ import pdfkit
 import os
 from pinoywok.parsers import default
 from pinoywok.parsers import jumpseller
-#from pinoywok.asset import pdf2png
 import pinoywok.helpers
 from pinoywok.logging import log
 import subprocess
-# Initialize audio player with error handling
-#try:
-#    from pinoywok.audio_player import AudioPlayer
-#    audio_player = AudioPlayer()
-#    _AUDIO_AVAILABLE = True
-#except Exception as e:
-#    print(f"Warning: Audio player initialization failed: {e}")
-#    # Create a dummy audio player that does nothing
-#    class DummyAudioPlayer:
-#        def __getattr__(self, name):
-#            return lambda *args, **kwargs: None
-#    audio_player = DummyAudioPlayer()
-#    _AUDIO_AVAILABLE = False
-
-
 
 from pinoywok.config import config
 
-'''
-
-{
-    "notifiable": null,
-    "modelInstance": 7,
-    "notificationPayload": {
-        "class": "TenantChannelMessageNotification",
-        "title": "Canal Tenant",
-        "message": "Tenant Message",
-        "notificationPayload": {
-            "tab_id": 7,
-            "file_path": "tabs/sale_notes/tab_7_1744936263.pdf",
-            "tenant_id": 1
-        }
-    },
-    "model": "Domain\\App\\Models\\Tab\\Tab",
-    "targetType": "user",
-    "mailSubject": "Canal Tenant",
-    "data": {
-        "tab_id": 7,
-        "file_path": "tabs/sale_notes/tab_7_1744936263.pdf",
-        "tenant_id": 1
-    },
-    "type": "print",
-    "timestamp": "2025-04-17T20:31:05-04:00",
-    "targetRoles": null,
-    "notify": "none"
-}
-
-'''
-
-def print_order(j,token,output,log_file,config_file):
+def print_order(tab_id, token, output, log_file, config_file):
     
     config.load_config(config_file)
     API = f"{config.get_config('API_SCHEME')}://{config.get_config('API_HOST')}{':' + str(config.get_config('API_PORT')) if config.get_config('WS_PORT') else ''}/api/"
 
-    tab_id = j['data']['tab_id']
     download_url = f"{API}tab/tab/{tab_id}/download"
     output_file = os.path.join(output, f"tab_{tab_id}.pdf")
     
@@ -106,104 +61,44 @@ def print_order(j,token,output,log_file,config_file):
     log(f"Output File: {output_file}")
     log(f"Tab ID: {tab_id}")
     
+    # Check response status and content type
+    log(f"Response status code: {response.status_code}")
+    log(f"Response content type: {response.headers.get('Content-Type', 'unknown')}")
+    
+    # If not a successful response or not a PDF, log the content
+    if response.status_code != 200 or 'application/pdf' not in response.headers.get('Content-Type', ''):
+        log(f"Error response content: {response.text[:500]}...")  # Log first 500 chars
+        return False
+        
+    # Save the PDF file
     with open(output_file, 'wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
-                f.write(chunk)    
- 
-    if WINDOWS_OS:
-        try:
-      
-            images = convert_from_path(output_file, dpi=203,poppler_path=config.get("POPPLER_PATH"))
-            
-            # Connect to printer
-            #if printer_type == "usb":
-            printer = Usb(config.get("PRINTER_VENDOR"), config.get("PRINTER_PRODUCT"))
-            #elif printer_type == "network":
-            #    printer = Network(printer_params.get("ip"), printer_params.get("port", 9100))
-            #elif printer_type == "file":
-            #    printer = File(printer_params.get("path"))
-            
-            # Print each page
-            for img in images:
-                # Resize to fit receipt width
-                width, height = img.size
-                max_width = config.get("PRINTER_MAX_WIDTH", 512)
-                if width > max_width:
-                    ratio = max_width / width
-                    img = img.resize((max_width, int(height * ratio)))
-                log(f"Printing page {images.index(img) + 1} of {len(images)}")
-                # Print and cut
-                printer.image(img)
-                printer.cut()
-                
-            return True
-        except Exception as e:
-            log(f"ESC/POS printing failed: {e}")
-
-    else:
-        if sys.platform == 'darwin':  # for Mac OS
-            subprocess.call(['open', output_file])
-        elif sys.platform == 'linux':  # for Linux
-            subprocess.call(['xdg-open', output_file])
-        elif sys.platform == 'win32':  # for Windows
-            subprocess.call(['start', output_file])
-        else:
-            print("Unsupported platform")
-            
-            
-def print_order_test(j,token,output,log_file,config_file):
+                f.write(chunk)
     
-    config.load_config(config_file)
-    API = f"{config.get_config('API_SCHEME')}://{config.get_config('API_HOST')}{':' + str(config.get_config('API_PORT')) if config.get_config('WS_PORT') else ''}/api/"
-
-    tab_id = j['data']['tab_id']
-    download_url = f"{API}tab/tab/{tab_id}/download"
-    output_file = os.path.join(output, f"tab_{tab_id}.pdf")
-    
-    response = requests.get(download_url, headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}, stream=True)    
-    log(f"Download URL: {download_url}")
-    log(f"Bearer Token: {token}")
-    log(f"Output File: {output_file}")
-    log(f"Tab ID: {tab_id}")
-    
-    with open(output_file, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)    
- 
-    
+    # Try converting and printing the PDF
     try:
-    
-        images = convert_from_path(output_file, dpi=203,poppler_path=config.get("POPPLER_PATH"))
-        
-        # Connect to printer
-        #if printer_type == "usb":
-        printer = Usb(config.get("PRINTER_VENDOR"), config.get("PRINTER_PRODUCT"))
-        #elif printer_type == "network":
-        #    printer = Network(printer_params.get("ip"), printer_params.get("port", 9100))
-        #elif printer_type == "file":
-        #    printer = File(printer_params.get("path"))
-        
-        # Print each page
-        for img in images:
-            # Resize to fit receipt width
-            width, height = img.size
-            max_width = config.get("PRINTER_MAX_WIDTH", 512)
-            if width > max_width:
-                ratio = max_width / width
-                img = img.resize((max_width, int(height * ratio)))
-            log(f"Printing page {images.index(img) + 1} of {len(images)}")
-            # Print and cut
-            printer.image(img)
-            printer.cut()
-            
-        return True
-    except Exception as e:
-        log(f"ESC/POS printing failed: {e}")
+        images = convert_from_path(output_file, 203, poppler_path=config.get('POPPLER_PATH'))
+        log(f"Successfully converted PDF to {len(images)} images")
 
-    
-    
+        if WINDOWS_OS:
+            for image in images:
+                printPil(image)
+        else:
+            if sys.platform == 'darwin':  # for Mac OS
+                subprocess.call(['open', output_file])
+            elif sys.platform == 'linux':  # for Linux
+                subprocess.call(['xdg-open', output_file])
+            else:
+                log("Unsupported platform")
+                return False
+        
+        return True
+        
+    except Exception as e:
+        log(f"Error converting/printing PDF: {e}")
+        return False
+              
 def printer(image):
     #https://github.com/grantgeorge/pythonPrinting/blob/master/printTest.py
     #https://gist.github.com/buptxge/2fc61a3f914645cf8ae2c9a258ca06c9?permalink_comment_id=3971565
@@ -241,6 +136,74 @@ def printer(image):
 
     return
 
+def printPil(image):
+    PHYSICALWIDTH = 110
+    PHYSICALHEIGHT = 111
+    HORZRES = 8       # Width of printable area in pixels
+    VERTRES = 10      # Height of printable area in pixels
+    LOGPIXELSX = 88   # Logical pixels per inch in X
+    LOGPIXELSY = 90   # Logical pixels per inch in Y
+    
+    printer_name = win32print.GetDefaultPrinter()
+    print(f"Using printer: {printer_name}")
+    
+    # If image is a string (file path), open it as an image
+    if isinstance(image, str):
+        bmp = Image.open(image)
+    else:
+        # It's already a PIL Image object
+        bmp = image
+    
+    hDC = win32ui.CreateDC()
+    hDC.CreatePrinterDC(printer_name)
+    
+    # Get printer capabilities
+    physical_width = hDC.GetDeviceCaps(PHYSICALWIDTH)
+    physical_height = hDC.GetDeviceCaps(PHYSICALHEIGHT)
+    printable_width = hDC.GetDeviceCaps(HORZRES)
+    printable_height = hDC.GetDeviceCaps(VERTRES)
+    dpi_x = hDC.GetDeviceCaps(LOGPIXELSX)
+    dpi_y = hDC.GetDeviceCaps(LOGPIXELSY)
+    
+    # Print capabilities
+    print(f"Printer capabilities:")
+    print(f"  Physical width: {physical_width} pixels ({physical_width/dpi_x:.2f} inches)")
+    print(f"  Physical height: {physical_height} pixels ({physical_height/dpi_y:.2f} inches)")
+    print(f"  Printable width: {printable_width} pixels ({printable_width/dpi_x:.2f} inches)")
+    print(f"  Printable height: {printable_height} pixels ({printable_height/dpi_y:.2f} inches)")
+    print(f"  DPI X: {dpi_x}")
+    print(f"  DPI Y: {dpi_y}")
+    
+    # Calculate 5cm width in pixels
+    # 1 inch = 2.54 cm, so 5cm = 5/2.54 inches
+    target_width_inches = 5 / 2.54
+    target_width_pixels = int(target_width_inches * dpi_x)
+    
+    # Calculate height to maintain aspect ratio
+    aspect_ratio = bmp.height / bmp.width
+    target_height_pixels = int(target_width_pixels * aspect_ratio)
+    
+    print(f"Target dimensions for 5cm width:")
+    print(f"  Width: {target_width_pixels} pixels ({target_width_inches:.2f} inches)")
+    print(f"  Height: {target_height_pixels} pixels ({target_height_pixels/dpi_y:.2f} inches)")
+    
+    # Use a unique document name
+    doc_name = f"receipt_{int(time.time())}"
+    hDC.StartDoc(doc_name)
+    hDC.StartPage()
+    
+    # Draw the image with the specified width (5cm)
+    dib = ImageWin.Dib(bmp)
+    dib.draw(hDC.GetHandleOutput(), (0, 0, target_width_pixels, target_height_pixels))
+    
+    hDC.EndPage()
+    hDC.EndDoc()
+    hDC.DeleteDC()
+    
+    return
+
+
+
 def open_pdf(pdf_file):
     #acrobat = r'C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe'
     acrobat = config.get_acrobat_path()
@@ -254,3 +217,43 @@ def open_pdf(pdf_file):
         raise Exception(f"PDF printing failed with exit code {exit_code}. Error: {errors.decode()}")
     
     return exit_code
+
+
+
+
+def pdf2png(tab_id, pdf_path, output_dir):
+    try:
+        # First try with pdf2image/poppler
+        images = convert_from_path(pdf_path, 600, poppler_path=config.get('POPPLER_PATH'))
+        
+        # Save the images
+        png_files = []
+        for i, image in enumerate(images):
+            file_path = os.path.join(output_dir, f'tab_{tab_id}_page_{i+1}.png')
+            image.save(file_path, 'PNG')
+            png_files.append(file_path)
+        
+        return png_files
+    except Exception as e:
+        log(f"Error converting PDF with pdf2image: {e}")
+        
+        # Fallback to alternative method: PyMuPDF
+        try:
+            import fitz  # PyMuPDF
+            
+            doc = fitz.open(pdf_path)
+            png_files = []
+            
+            for i, page in enumerate(doc):
+                pix = page.get_pixmap(dpi=203)
+                file_path = os.path.join(output_dir, f'tab_{tab_id}_page_{i+1}.png')
+                pix.save(file_path)
+                png_files.append(file_path)
+            
+            return png_files
+        except ImportError:
+            log("PyMuPDF not installed. Install with: pip install PyMuPDF")
+            raise
+        except Exception as e2:
+            log(f"Error converting PDF with PyMuPDF: {e2}")
+            raise
