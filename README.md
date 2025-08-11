@@ -44,7 +44,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 To install visual studio
 choco install visualstudio2022-workload-vctools -y
 
-
+& "C:\Program Files\kitchntabs\resources\python-service\kt_service.exe" "24|eJHkese14E9Mjv1cBs1W1XFKYGnIyndKvFPYKvWm51de9eec" "private-tenant.1.system" "config.kitchntabs.prod.yaml" "log.txt"
 ## Requirement Windoiws Development
 
 VStudio C Compiler tools to compile the node zmq library
@@ -67,11 +67,13 @@ set-executionpolicy RemoteSigned -Scope CurrentUser
 New-Alias -Name python -Value python3
 
 #### Create the environment
-py -m venv ./pw_env
+python -m venv ./pw_env
+#### Or just use it if its created
 .\pw_env\Scripts\activate.ps1
-py -m pip install -r ./requirements.txt
-py -m pip install pywin32   
-py -m pip install pyinstaller
+#### Make sure python resolves to the env
+python -m pip install -r ./requirements.txt
+python -m pip install pywin32   
+python -m pip install pyinstaller
 
 - Notes: 
 - - TODO: pipinstaller is included in the requirements, though it should not, and should be globally scoped installed, not required in the venv.
@@ -83,6 +85,8 @@ pipinstaller not copying assets requires by escpos.
 
 pyinstaller ./pw_ws_service/ws_service.py --distpath ./pinoywok-service --add-data "config.yaml:."  --add-data "pw_python_env/Lib/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm 
 
+pyinstaller ./src/kt_service.py --distpath ./ --add-data "config.kitchntabs.prod.yaml:./config.yaml"  --add-data "pw_python_env/Lib/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm
+
 mkdir -p logs
 
 # TEST PRINT
@@ -93,3 +97,69 @@ mkdir -p logs
 
 .\pw_env\Scripts\activate.ps1
 py ./src/print_service.py 39  "107|TbJOsinJS3X3kZ6sO9s7tNc0wKbdYh67lY2FRRmZ7bf8b610" .\config.prod.yaml log.txt
+
+
+Here’s a step-by-step guide to install Python from python.org:
+
+1. Uninstall Windows Store Python (optional but recommended)
+Open Settings > Apps > Installed apps.
+Search for "Python".
+Uninstall any "Python" entries from the Microsoft Store.
+2. Download Python Installer
+Go to: https://www.python.org/downloads/windows/
+Click Download Python 3.11.x (or your preferred version).
+3. Run the Installer
+Double-click the downloaded .exe file.
+Important:
+Check "Add Python to PATH" at the bottom of the installer window.
+Click "Customize installation" if you want to change the install location or features.
+Click "Install Now".
+4. Verify Installation
+Open a new PowerShell or Command Prompt and run:
+
+You should see the python.org version (e.g., Python 3.11.x).
+
+5. (Optional) Create a Virtual Environment
+6. Install Your Requirements
+Now you can use PyInstaller and other tools without Windows Store limitations!
+
+
+# WINDOWS BUILD:
+
+& C:/Users/USER/DASH/dash-python-service/pw_env/Scripts/Activate.ps1
+python -m PyInstaller ./src/kt_service.py --onefile --distpath ./service --add-data ./config.kitchntabs.prod.yaml:. --add-data pw_env/Lib/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm
+
+
+# WINDOWS THROUBLESHOOTING
+ImportError: DLL load failed while importing _win32sysloader: No se puede encontrar el módulo especificado.
+...
+AttributeError: Failed to retrieve attribute __file__ from module pythoncom
+
+Test-Path "pw_env\Lib\site-packages\pywin32_system32\pythoncom39.dll"
+Test-Path "pw_env\Lib\site-packages\pywin32_system32\pywintypes39.dll"
+
+New-Item -ItemType Directory -Path "C:\Program Files\kitchntabs\resources\python-service\_internal" -Force
+
+If the files do not exists, reinstall:
+
+# Sometimes is necessary to reinstalll pywin32
+py -m pip uninstall pywin32
+py -m pip install pywin32
+
+# TEST
+& "C:\Program Files\kitchntabs\resources\python-service\kt_service.exe" "24|eJHkese14E9Mjv1cBs1W1XFKYGnIyndKvFPYKvWm51de9eec" "private-tenant.1.system" "config.kitchntabs.prod.yaml" "log.txt"
+
+
+& "C:\Users\USER\DASH\dash-python-service\\kt_service\\kt_service.exe" "24|eJHkese14E9Mjv1cBs1W1XFKYGnIyndKvFPYKvWm51de9eec" "private-tenant.1.system" "config.kitchntabs.prod.yaml" "log.txt"
+
+Test-Path "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\python311.dll"
+Test-Path "C:\Program Files\kitchntabs\resources\python-service\_internal\python311.dll"
+
+
+PyInstaller cannot embed the Python DLL (python311.dll) inside the .exe when building with the Windows Store version of Python. This is a known limitation due to Windows Store Python's packaging and permissions.
+With python.org Python, PyInstaller can usually bundle the DLL automatically in onefile mode.
+With Windows Store Python, you must manually copy the DLL next to your executable.
+
+
+
+

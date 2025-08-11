@@ -6,11 +6,11 @@
     "license": "MIT",
     "private": true,
     "scripts": {
-      "dev": "python3.9 ./src/ws_service.py 'USER_TOKEN' ./config.dev.mac.yaml",
-      "dev-win": "py ./src/ws_service.py 'USER_TOKEN' ./config.dev.yaml",
-      "build":     "pyinstaller ./src/ws_service.py --onefile --distpath ./service --add-data ./config.prod.yaml:. --add-data pw_env/lib/python3.9/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm",
-      "build-win": "pyinstaller ./src/ws_service.py --onefile --distpath ./service --add-data ./config.prod.yaml:. --add-data pw_env/Lib/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm"
-      
+      "dev": "python3.9 ./src/kt_service.py 'USER_TOKEN' ./config.dev.mac.yaml",
+      "dev-win": "py ./src/kt_service.py 'USER_TOKEN' ./config.dev.yaml",
+      "build":     "python -m pyinstaller ./src/kt_service.py --onefile --distpath ./kt_service --add-data ./config.kitchntabs.prod.yaml:. --add-data pw_env/lib/python3.9/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm",
+      "build-win": "build.win.bat",
+      "copy-dll-win": "copy-python-dll.bat"
     },
     "depenencies" : {
         

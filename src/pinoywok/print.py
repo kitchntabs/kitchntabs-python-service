@@ -13,6 +13,8 @@ from escpos.printer import Usb, Network, File
 import usb.backend.libusb1 as libusb1
 
 
+# Define flag for tracking if win32print is available
+_WIN32PRINT_AVAILABLE = False
 
 WINDOWS_OS = False
 if platform.system() == 'Windows' or os.name == 'nt':
@@ -21,7 +23,7 @@ if platform.system() == 'Windows' or os.name == 'nt':
 if WINDOWS_OS:
     try:
         import win32print
-        _WIN32PRINT = True
+        _WIN32PRINT_AVAILABLE = True
     except ImportError:
         print('Warning: missing lib... win32print')
 
@@ -29,6 +31,7 @@ if WINDOWS_OS:
         import win32ui
     except ImportError:
         print('Warning: missing lib... win32ui')
+        _WIN32PRINT_AVAILABLE = False
         pass
 
 from PIL import Image
@@ -82,8 +85,13 @@ def print_order(tab_id, token, output, log_file, config_file):
         log(f"Successfully converted PDF to {len(images)} images")
 
         if WINDOWS_OS:
-            for image in images:
-                printPil(image)
+            if _WIN32PRINT_AVAILABLE:
+                for image in images:
+                    printPil(image)
+            else:
+                log("win32print is not available. Cannot print directly on Windows without it.")
+                # Open the file for viewing instead
+                subprocess.call(['start', output_file], shell=True)
         else:
             if sys.platform == 'darwin':  # for Mac OS
                 subprocess.call(['open', output_file])
@@ -100,6 +108,11 @@ def print_order(tab_id, token, output, log_file, config_file):
         return False
               
 def printer(image):
+    # Check if win32print is available
+    if not _WIN32PRINT_AVAILABLE:
+        log("win32print module is not available. Cannot print.")
+        return False
+        
     #https://github.com/grantgeorge/pythonPrinting/blob/master/printTest.py
     #https://gist.github.com/buptxge/2fc61a3f914645cf8ae2c9a258ca06c9?permalink_comment_id=3971565
     
@@ -134,9 +147,14 @@ def printer(image):
     #else:
     #    open_pdf()
 
-    return
+    return True
 
 def printPil(image):
+    # Check if win32print is available
+    if not _WIN32PRINT_AVAILABLE:
+        log("win32print module is not available. Cannot print.")
+        return False
+        
     PHYSICALWIDTH = 110
     PHYSICALHEIGHT = 111
     HORZRES = 8       # Width of printable area in pixels
@@ -200,9 +218,7 @@ def printPil(image):
     hDC.EndDoc()
     hDC.DeleteDC()
     
-    return
-
-
+    return True
 
 def open_pdf(pdf_file):
     #acrobat = r'C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe'
