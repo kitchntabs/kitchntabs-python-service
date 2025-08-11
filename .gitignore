@@ -19,3 +19,5 @@ __pycache__/
 /pw_env
 *.dll
 /output
+kt_service.spec
+kt_service/kt_service.exe
