@@ -11,6 +11,7 @@ import unicodedata
 import asyncio
 import sys
 import websockets
+import contextlib
 # External function reference (assumed to be imported)
 from print_service import print_order
 
@@ -31,19 +32,6 @@ PING_LOCAL_INTERVAL = 180
 PING_REMOTE_INTERVAL = 180
 PING_ACTION = "ping"
 PING_MESSAGE = "pong"
-
-#BEARER_TOKEN = "43|m1Zdwt33RL4hAJmjjBmkJYcvJE98WFuqiTLydDAmc6e4de8a"
-
-#APP = "dash"
-#CHANNEL = "private-tenant.1.system"
-#WS_HOST = "localhost"
-#WS_PORT = 6001
-#WS_SCHEME = "http"
-#API_HOST = "localhost"
-#API_PORT = 8000
-#API_SCHEME = "http"
-#AUTH_ENDPOINT = "api/ws/auth"
-
 
 def log(message):
     """Helper function to log messages with timestamp"""
@@ -85,40 +73,31 @@ async def handle_reverb_event(channel, data):
 
 async def websocket_handler(message_bytes):
     _args = args.get_args()
-    
     """
     Handle incoming Socket messages.
     :param message: incoming message (string or JSON)
     """
-
     # message bytes -> message string
     # TODO: some characters such as utf emoticons, make the application to crash. They are removed for now. 
     message = unicodedata.normalize('NFKD', message_bytes).encode('ascii', 'ignore').decode('ascii')
     log("Raw message received from websocket")
     log(message)
-    
     # Check if message is a JSON string or a plain string
     try:
         json_message = json.loads(message)
-        #log("JSON Message")
-        #log(json.dumps(json_message, indent=2))
-        
         # Process the message based on type if needed
         if "type" in json_message:
-           
             message_type = json_message["type"]
             log(f"Message Type: {message_type}")
-            if message_type == "print":
+            if "print" in message_type:
                 tab_id = json_message.get("data", {}).get("tab_id", "")
-                log(f"Tab id: {tab_id}")
-                #asyncio.create_task(asyncio.to_thread(print_order, _args.token[1:-1], json_message, _args.log, _args.config, True, True))
+                log(f"Print Tab id: {tab_id}")
                 print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)            
-            if "message" in message_type:
+            if "speech" in message_type:
                 audio_player = AudioPlayer()
-                message = json_message.get("data", {}).get("message", "")
-                log(f"Message: {message}")
+                message = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
+                log(f"Speech Message: {message}")
                 audio_player.thread_generate_audio(message, "notification.mp3")
-            
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")
@@ -128,14 +107,11 @@ async def websocket_handler(message_bytes):
 
 # You need to generate an auth token
 async def get_auth_token(socket_id, channel):
-    
     _args = args.get_args()
     AUTH_URL = f"{config.get_config('API_SCHEME')}://{config.get_config('API_HOST')}{':' + str(config.get_config('API_PORT')) if config.get_config('API_PORT') else ''}/{config.get_config('AUTH_ENDPOINT')}"
-    
     """Get authentication token for private channels"""
     log(AUTH_URL)
     TOKEN = _args.token
-    # mac has ius_args.token[1:-1]    
     try:
         async with aiohttp.ClientSession() as session:
             headers = {
@@ -175,18 +151,15 @@ async def receive_remote_ws_messages(socket):
     This function will run continuously in an asyncio task.
     """
     log("=== Starting receive_remote_ws_messages function ===")
-    
     try:
         # Wait for connection to be established first
         log("Waiting for connection_established event...")
         connection_established = False
         socket_id = None
-        
         while not connection_established and socket.open:
             try:
                 message = await socket.recv()
                 log(f"Received initial message: {message}")
-                
                 try:
                     data = json.loads(message)
                     if data.get('event') == 'pusher:connection_established':
@@ -202,20 +175,16 @@ async def receive_remote_ws_messages(socket):
             except Exception as e:
                 log(f"Error while waiting for connection establishment: {e}")
                 await asyncio.sleep(1)
-        
         if not connection_established or not socket_id:
             log("Failed to establish connection properly or get socket ID")
             return
-            
         # Now subscribe to channel with authentication
         log(f"Attempting to subscribe to private channel: {_args.channel}")
-        
         # Get authentication token
         auth_token = await get_auth_token(socket_id, _args.channel)
         if not auth_token:
             log("Failed to get authentication token. Cannot subscribe to private channel.")
             return
-        
         subscribe_payload = {
             "event": "pusher:subscribe",
             "data": {
@@ -223,13 +192,10 @@ async def receive_remote_ws_messages(socket):
                 "auth": auth_token
             }
         }
-        
         payload_json = json.dumps(subscribe_payload)
         log(f"Sending subscription payload: {payload_json}")
-        
         await socket.send(payload_json)
         log(f"Subscription request sent for channel: {_args.channel}")
-        
         # Main message processing loop
         log("Starting main message processing loop")
         while socket.open:
@@ -237,14 +203,11 @@ async def receive_remote_ws_messages(socket):
                 # Wait for a message
                 message = await socket.recv()
                 log(f"Received message: {message}")
-                
                 # Parse the message
                 try:
                     message_data = json.loads(message)
-                    
                     # Check if it's a Pusher protocol message
                     event_type = message_data.get('event', '')
-                    
                     if event_type.startswith('pusher:'):
                         # Handle Pusher protocol messages
                         if event_type == 'pusher:subscription_succeeded':
@@ -253,13 +216,10 @@ async def receive_remote_ws_messages(socket):
                             log("Received ping, sending pong")
                             await socket.send(json.dumps({"event": "pusher:pong"}))
                         continue
-                    
                     # Process application event
                     channel = message_data.get('channel')
                     event = message_data.get('event')
-                    
                     log(f"Received application event: {event} on channel: {channel}")
-                    
                     # Extract data from the message
                     data = {}
                     if 'data' in message_data:
@@ -271,26 +231,21 @@ async def receive_remote_ws_messages(socket):
                         except json.JSONDecodeError:
                             log(f"Error decoding data: {message_data['data']}")
                             data = {"raw": message_data['data']}
-                    
                     # Process the message data
                     log(f"Processing event data: {data}")
                     await handle_reverb_event(channel, data)
-                    
                 except json.JSONDecodeError:
                     log(f"Error decoding JSON message: {message}")
-                
             except websockets.ConnectionClosed:
                 log("WebSocket connection closed during message processing")
                 return
             except Exception as e:
                 log(f"Error in message processing loop: {e}")
                 await asyncio.sleep(1)
-                
     except Exception as e:
         log(f"Fatal error in receive_remote_ws_messages: {e}")
         import traceback
         log(traceback.format_exc())
-
 
 async def send_remote_websocket(socket, message):
     """Send a message to the remote WebSocket"""
@@ -311,76 +266,78 @@ async def main():
     args.set_key("log", sys.argv[4] if len(sys.argv) > 4 else "log.txt")
 
     _args = args.get_args()
-    
     log(f"Token: {_args.token[1:-1]}")
-    
     if not _args.token:
         log("Error: Token is required")
         sys.exit(1)
-    
-    
     config.load_config(_args.config)
-    
     log(config.to_json())
     TOKEN = _args.token[1:-1]
-    # Main loop
-    while True:
-        if has_internet_connection:
-            try:
-                # Try to connect to the remote WebSocket service if not already connected
-                if remote_ws_service is None or not remote_ws_service.open:
-                    WS_URL = f"{'wss' if config.get_config('WS_SCHEME') == 'https' else 'ws'}://{config.get_config('WS_HOST')}{':' + str(config.get_config('WS_PORT')) if config.get_config('WS_PORT') else ''}/app/{config.get_config('APP')}?protocol=7&client=python&version=7.0.0"       
-   
-                    log(f"REMOTE_WS: Connecting to {WS_URL}")
-                    
-                    try:
-                        remote_ws_service = await websockets.connect(
-                            WS_URL, 
-                            extra_headers={"Authorization": f"Bearer {TOKEN}"},
-                            ping_interval=20,
-                            ping_timeout=20
-                        )
-                        
-                        if remote_ws_service.open:
-                            log(f"REMOTE_WS: Connected successfully")
-                            log(f"REMOTE_WS Type: {type(remote_ws_service)}")
-                            log(f"REMOTE_WS State: {remote_ws_service.state}")
-                        else:
-                            log("REMOTE_WS: Connection failed")
+
+    # Start the internet connection checker as a background task
+    connection_checker_task = asyncio.create_task(check_internet_connection())
+
+    try:
+        while True:
+            if has_internet_connection:
+                try:
+                    # Try to connect to the remote WebSocket service if not already connected
+                    if remote_ws_service is None or not remote_ws_service.open:
+                        WS_URL = f"{'wss' if config.get_config('WS_SCHEME') == 'https' else 'ws'}://{config.get_config('WS_HOST')}{':' + str(config.get_config('WS_PORT')) if config.get_config('WS_PORT') else ''}/app/{config.get_config('APP')}?protocol=7&client=python&version=7.0.0"       
+                        log(f"REMOTE_WS: Connecting to {WS_URL}")
+                        try:
+                            remote_ws_service = await websockets.connect(
+                                WS_URL, 
+                                extra_headers={"Authorization": f"Bearer {TOKEN}"},
+                                ping_interval=20,
+                                ping_timeout=20
+                            )
+                            if remote_ws_service.open:
+                                log(f"REMOTE_WS: Connected successfully")
+                                log(f"REMOTE_WS Type: {type(remote_ws_service)}")
+                                log(f"REMOTE_WS State: {remote_ws_service.state}")
+                            else:
+                                log("REMOTE_WS: Connection failed")
+                                await asyncio.sleep(5)  # Wait before trying again
+                                continue
+                        except Exception as e:
+                            log(f"REMOTE_WS Error during connection: {e}")
                             await asyncio.sleep(5)  # Wait before trying again
                             continue
-                            
-                    except Exception as e:
-                        log(f"REMOTE_WS Error during connection: {e}")
-                        await asyncio.sleep(5)  # Wait before trying again
-                        continue
-                
-                # Start necessary tasks
-                log(f"Starting WebSocket listening and monitoring tasks")
-                
-                tasks = [
-                    check_internet_connection(),
-                    #pinoywok.helpers.monitor_system_events(),
-                    receive_remote_ws_messages(remote_ws_service),
-                ]
-                
-                # Add ping task if enabled
-                if ENABLE_PING:
-                    tasks.append(ping_remote_websocket(remote_ws_service))
-                
-                # Run all tasks concurrently
-                await asyncio.gather(*tasks)
-                
-            except Exception as e:
-                log(f"main - Unexpected error: {e}")
-                # Close socket if it exists
-                if remote_ws_service and remote_ws_service.open:
-                    await remote_ws_service.close()
-                remote_ws_service = None
+                    # Start necessary tasks
+                    log(f"Starting WebSocket listening and monitoring tasks")
+                    tasks = [
+                        # check_internet_connection() is already running in the background
+                        #asyncio.create_task(pinoywok.helpers.monitor_system_events()),
+                        asyncio.create_task(receive_remote_ws_messages(remote_ws_service)),
+                    ]
+                    # Add ping task if enabled
+                    if ENABLE_PING:
+                        tasks.append(asyncio.create_task(ping_remote_websocket(remote_ws_service)))
+                    # Run all tasks concurrently, but return when any task finishes
+                    done, pending = await asyncio.wait(
+                        tasks,
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    # Cancel all pending tasks (e.g., receive_remote_ws_messages)
+                    for task in pending:
+                        task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await task
+                except Exception as e:
+                    log(f"main - Unexpected error: {e}")
+                    # Close socket if it exists
+                    if remote_ws_service and remote_ws_service.open:
+                        await remote_ws_service.close()
+                    remote_ws_service = None
+                    await asyncio.sleep(1)
+            else:
+                log("No internet connection. Waiting for connection...")
                 await asyncio.sleep(1)
-        else:
-            log("No internet connection. Waiting for connection...")
-            await asyncio.sleep(1)
+    finally:
+        connection_checker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await connection_checker_task
 
 # Add this ping function back in case you want to re-enable it
 async def ping_remote_websocket(socket):
@@ -396,7 +353,6 @@ async def ping_remote_websocket(socket):
         except Exception as e:
             log(f"ping_remote_websocket - Error: {e}")
             await asyncio.sleep(1)
-
 
 # Start the main async function
 if __name__ == "__main__":

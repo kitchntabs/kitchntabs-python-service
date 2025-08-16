@@ -144,7 +144,7 @@ If the files do not exists, reinstall:
 
 # Sometimes is necessary to reinstalll pywin32
 py -m pip uninstall pywin32
-py -m pip install pywin32
+python -m pip install pywin32
 
 # TEST
 & "C:\Program Files\kitchntabs\resources\python-service\kt_service.exe" "24|eJHkese14E9Mjv1cBs1W1XFKYGnIyndKvFPYKvWm51de9eec" "private-tenant.1.system" "config.kitchntabs.prod.yaml" "log.txt"
