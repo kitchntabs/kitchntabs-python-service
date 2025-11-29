@@ -1,7 +1,5 @@
 import os
-import threading
 import sys
-import pinoywok.speech    
 from pinoywok.args import args
 from pinoywok.config import config
 from pinoywok.logging import log
@@ -23,9 +21,6 @@ args.set_key("log", sys.argv[4] if len(sys.argv) > 4 else 'log.txt')
 #Load config
 _args = args.get_args()
 config.load_config(_args.config)
-
-def speech_task_threaded(json, token,output,log, cfg):
-    threading.Thread(target=pinoywok.speech.speech_task, args=(json,token,output,log,cfg)).start()
 
 def speech_task(json,token,log,cfg):
         folder = log
