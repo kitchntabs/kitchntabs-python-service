@@ -10,7 +10,6 @@ __pycache__/
 *$py.class
 .env
 
-
 # Local development settings
 .idea/
 .vscode/
@@ -19,5 +18,18 @@ __pycache__/
 /pw_env
 *.dll
 /output
+
+# PyInstaller build outputs (too large for GitHub)
 kt_service.spec
-kt_service/kt_service.exe
+print_service.spec
+tts_service.spec
+
+# Native build outputs (macOS/Windows)
+kt_service/
+dist/
+
+# Docker cross-compilation outputs (Linux x64, ARM64, ARMv7l)
+kt_service_builds/
+
+# Temporary config file
+config.yaml

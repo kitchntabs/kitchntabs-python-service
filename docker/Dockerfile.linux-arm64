@@ -1,0 +1,82 @@
+# Dockerfile for building kt_service, print_service, tts_service for Linux ARM64 (Raspberry Pi 4, 64-bit)
+# NOTE: Requires Raspberry Pi OS Bullseye or newer (GLIBC 2.31+)
+FROM --platform=linux/arm64 python:3.9-slim-bullseye
+
+# Install system dependencies with retry logic for network issues
+# Added ffmpeg for pydub audio conversion (mp3 to wav)
+RUN apt-get update && \
+    for i in 1 2 3; do \
+        apt-get install -y --no-install-recommends \
+            build-essential \
+            ffmpeg \
+            libusb-1.0-0-dev \
+            libasound2-dev \
+            portaudio19-dev \
+            libsndfile1-dev \
+            libffi-dev \
+            libssl-dev \
+        && break || (echo "Retry $i..." && sleep 5 && apt-get update); \
+    done && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies (some may need special handling for ARM)
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pyinstaller
+
+# Copy source code
+COPY src/ ./src/
+COPY config*.yaml ./
+
+# Build arguments
+ARG CONFIG_FILE=config.kitchntabs.prod.yaml
+
+# Copy the appropriate config file
+RUN cp ${CONFIG_FILE} config.yaml
+
+# Get escpos JSON files path
+RUN ESCPOS_PATH=$(python -c "import escpos; import os; print(os.path.dirname(escpos.__file__))") && \
+    echo "ESCPOS_PATH=$ESCPOS_PATH" > /tmp/escpos_path
+
+# Build all 3 services with PyInstaller
+# 1. kt_service (main WebSocket service)
+RUN . /tmp/escpos_path && \
+    python -m PyInstaller ./src/kt_service.py \
+    --onefile \
+    --distpath ./dist \
+    --add-data "config.yaml:." \
+    --add-data "$ESCPOS_PATH/*.json:escpos" \
+    --collect-data escpos \
+    --noconfirm \
+    --clean
+
+# 2. print_service (thermal printing service)
+RUN . /tmp/escpos_path && \
+    python -m PyInstaller ./src/print_service.py \
+    --onefile \
+    --distpath ./dist \
+    --add-data "config.yaml:." \
+    --add-data "$ESCPOS_PATH/*.json:escpos" \
+    --collect-data escpos \
+    --noconfirm \
+    --clean
+
+# 3. tts_service (text-to-speech service)
+RUN python -m PyInstaller ./src/tts_service.py \
+    --onefile \
+    --distpath ./dist \
+    --noconfirm \
+    --clean
+
+# Output directory - copy all 3 services
+RUN mkdir -p /output && \
+    cp ./dist/kt_service /output/kt_service && \
+    cp ./dist/print_service /output/print_service && \
+    cp ./dist/tts_service /output/tts_service
+
+CMD ["cp", "-r", "/output/.", "/host-output/"]

@@ -29,3 +29,9 @@ GOOGLE_MAPS_API_KEY: ""
 JUMPSELLER_SECRET_KEY: ""
 TWILIO_ID: ""
 TWILIO_TOKEN: ""
+
+# Speech/TTS Messages
+SPEECH_WELCOME_MESSAGE: "Bienvenido a Pinoy Wok"
+SPEECH_CONNECTED_MESSAGE: "Conectado al servidor"
+SPEECH_DISCONNECTED_MESSAGE: "Desconectado del servidor"
+SPEECH_LANGUAGE: "es"

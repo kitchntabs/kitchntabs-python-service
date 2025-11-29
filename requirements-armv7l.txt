@@ -1,0 +1,26 @@
+# Requirements for ARMv7l (Raspberry Pi 32-bit)
+# This is a simplified version that excludes packages requiring llvmlite/numba
+# which cannot be easily built on ARMv7l due to LLVM 14 dependency
+
+scipy==1.11.4
+# audiomentations - EXCLUDED: requires numpy-rms which has NEON compilation issues
+escpos==1.9
+gTTS==2.5.3
+Jinja2==3.1.4
+# librosa - EXCLUDED: requires numba which requires llvmlite which requires LLVM 14+
+pdf2image==1.17.0
+pdfkit==1.0.0
+Pillow==10.4.0
+PyAudio==0.2.14
+python-dotenv==1.0.1
+python-socketio==5.11.4
+pyusb==1.2.1
+PyYAML==6.0.2
+Requests==2.32.3
+simpleaudio==1.0.4
+soundfile==0.12.1
+websockets==12.0
+psutil==7.0.0
+aiohttp==3.11.16
+# pydub for mp3 to wav conversion (fallback for pitch shifting)
+pydub==0.25.1

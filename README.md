@@ -85,6 +85,10 @@ pipinstaller not copying assets requires by escpos.
 
 pyinstaller ./pw_ws_service/ws_service.py --distpath ./pinoywok-service --add-data "config.yaml:."  --add-data "pw_python_env/Lib/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm 
 
+mac: 
+pyinstaller ./src/kt_service.py  --distpath ./service --add-data "config.yaml:."  --add-data "pw_env/lib/python3.9/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm 
+
+
 pyinstaller ./src/kt_service.py --distpath ./ --add-data "config.kitchntabs.prod.yaml:./config.yaml"  --add-data "pw_python_env/Lib/site-packages/escpos/*.json:escpos" --collect-data escpos --noconfirm
 
 mkdir -p logs

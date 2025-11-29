@@ -25,6 +25,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module='urllib3')
 has_internet_connection = True
 remote_ws_service = None  # remote ws service
 local_ws_service = None
+audio_player = None  # Global audio player instance
 
 # CONSTANTS
 ENABLE_PING = False
@@ -33,10 +34,33 @@ PING_REMOTE_INTERVAL = 180
 PING_ACTION = "ping"
 PING_MESSAGE = "pong"
 
+# Default welcome messages (can be overridden by config)
+DEFAULT_WELCOME_MESSAGE = "Bienvenido a Kitchen Tabs"
+DEFAULT_CONNECTED_MESSAGE = "Conectado al servidor"
+DEFAULT_DISCONNECTED_MESSAGE = "Desconectado del servidor"
+DEFAULT_SPEECH_LANGUAGE = "es"
+
+def get_speech_message(key, default):
+    """Get speech message from config with fallback to default"""
+    return config.get_config(key) or default
+
 def log(message):
     """Helper function to log messages with timestamp"""
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] {message}", flush=True)
+
+def speak(message, lang=None):
+    """Helper function to speak a message using text-to-speech"""
+    global audio_player
+    try:
+        if audio_player is None:
+            audio_player = AudioPlayer()
+        if lang is None:
+            lang = config.get_config('SPEECH_LANGUAGE') or DEFAULT_SPEECH_LANGUAGE
+        log(f"Speaking ({lang}): {message}")
+        audio_player.thread_generate_audio(message, None, lang=lang)  # Use None to let audio_player use tempfile
+    except Exception as e:
+        log(f"Error speaking message: {e}")
 
 async def is_internet_connected():
     try:
@@ -212,6 +236,9 @@ async def receive_remote_ws_messages(socket):
                         # Handle Pusher protocol messages
                         if event_type == 'pusher:subscription_succeeded':
                             log(f"Successfully subscribed to channel: {message_data.get('channel', 'unknown')}")
+                            # Speak connected message when subscription succeeds
+                            connected_msg = get_speech_message('SPEECH_CONNECTED_MESSAGE', DEFAULT_CONNECTED_MESSAGE)
+                            speak(connected_msg)
                         elif event_type == 'pusher:ping':
                             log("Received ping, sending pong")
                             await socket.send(json.dumps({"event": "pusher:pong"}))
@@ -258,6 +285,7 @@ async def send_remote_websocket(socket, message):
 async def main():
     global has_internet_connection
     global remote_ws_service
+    global audio_player
 
     # Config
     args.set_key("token", sys.argv[1] if len(sys.argv) > 1 else None)
@@ -273,6 +301,15 @@ async def main():
     config.load_config(_args.config)
     log(config.to_json())
     TOKEN = _args.token[1:-1]
+
+    # Initialize audio player and speak welcome message
+    try:
+        audio_player = AudioPlayer()
+        log("Audio player initialized")
+        welcome_msg = get_speech_message('SPEECH_WELCOME_MESSAGE', DEFAULT_WELCOME_MESSAGE)
+        speak(welcome_msg)
+    except Exception as e:
+        log(f"Warning: Could not initialize audio player: {e}")
 
     # Start the internet connection checker as a background task
     connection_checker_task = asyncio.create_task(check_internet_connection())
