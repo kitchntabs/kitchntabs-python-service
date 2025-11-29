@@ -1,18 +1,19 @@
 {
-    "name": "pinoywok-python-service",
+    "name": "kitchntabs-python-service",
     "version": "1.0.0",
-    "description": "PinoyWok Python Service",
+    "description": "KitchnTabs Python Service - WebSocket and Print Service",
     "author": "Francisco Aranda <farandal@gmail.com>",
     "license": "MIT",
     "private": true,
     "scripts": {
-      "dev": "python3.9 ./src/kt_service.py 'USER_TOKEN' ./config.dev.mac.yaml",
-      "dev-win": "py ./src/kt_service.py 'USER_TOKEN' ./config.dev.yaml",
-      "build":     "python -m pyinstaller ./src/kt_service.py --onefile --distpath ./kt_service --add-data ./config.kitchntabs.prod.yaml:. --add-data pw_env/lib/python3.9/site-packages/escpos/*.json:escpos --collect-data escpos --noconfirm",
+      "dev": "python3.9 ./src/kt_service.py 'USER_TOKEN' 'private-tenant.1.system' ./config.dev.mac.yaml log.txt",
+      "dev-win": "py ./src/kt_service.py 'USER_TOKEN' 'private-tenant.1.system' ./config.dev.yaml log.txt",
+      "build": "node build-service.js",
+      "build:ngrok": "node build-service.js --custom-mode=kitchntabs.ngrok",
+      "build:prod": "node build-service.js --custom-mode=kitchntabs.prod",
+      "build:dev": "node build-service.js --custom-mode=dev",
       "build-win": "build.win.bat",
       "copy-dll-win": "copy-python-dll.bat"
     },
-    "depenencies" : {
-        
-    }
+    "dependencies": {}
 }
