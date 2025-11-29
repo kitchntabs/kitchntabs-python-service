@@ -3,12 +3,16 @@ log.txt
 pw_python_env
 service
 ws_service.spec
+ws_service.spec.bkup
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 .env
+
+# OS files
+.DS_Store
 
 # Local development settings
 .idea/
