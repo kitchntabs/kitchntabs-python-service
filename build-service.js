@@ -153,43 +153,84 @@ function cleanBuildArtifacts() {
 
 // Build the Python service
 function buildService(args) {
-  const { platform } = args;
-  const escposPath = getEscposPath(platform);
-  const pythonCmd = getPythonCommand(platform);
+  // Use the actual OS platform for build commands, not the target platform
+  const osPlatform = process.platform;
+  const targetPlatform = args.platform;
+  
+  // For paths and executable detection, use target platform
+  // For shell commands, use OS platform
+  const escposPath = getEscposPath(osPlatform);
+  
+  // Use the venv Python directly to avoid PATH issues
+  let pythonExe;
+  if (osPlatform === 'win32') {
+    pythonExe = path.join(PROJECT_DIR, 'pw_env', 'Scripts', 'python.exe');
+  } else {
+    pythonExe = path.join(PROJECT_DIR, 'pw_env', 'bin', 'python');
+  }
 
   // Determine if we should use --onefile
   const useOnefile = true; // Set to false for directory mode
 
-  // Build PyInstaller command
-  const pyinstallerArgs = [
-    `${pythonCmd} -m PyInstaller`,
-    './src/kt_service.py',
-    useOnefile ? '--onefile' : '',
-    `--distpath ./kt_service`,
-    '--add-data "config.yaml:."',
-    `--add-data "${escposPath}:escpos"`,
-    '--collect-data escpos',
-    '--noconfirm',
-    '--clean'
-  ].filter(Boolean).join(' ');
+  // PyInstaller data separator is ; on Windows, : on Unix
+  const dataSep = osPlatform === 'win32' ? ';' : ':';
 
   console.log('🔧 Building Python service...');
-  console.log(`   Command: ${pyinstallerArgs}`);
+  console.log(`   OS Platform: ${osPlatform}`);
+  console.log(`   Target Platform: ${targetPlatform}`);
+  console.log(`   Python: ${pythonExe}`);
 
   try {
-    // Activate venv and run pyinstaller
-    let activateCmd;
-    if (platform === 'win32') {
-      activateCmd = `.\\pw_env\\Scripts\\activate.ps1 && ${pyinstallerArgs}`;
+    // Build command differently for Windows vs Unix
+    if (osPlatform === 'win32') {
+      // On Windows/PowerShell, use & operator for paths with spaces
+      const pyinstallerArgs = [
+        '-m', 'PyInstaller',
+        './src/kt_service.py',
+        '--onefile',
+        '--distpath', './kt_service',
+        '--add-data', `config.yaml${dataSep}.`,
+        '--add-data', `${escposPath}${dataSep}escpos`,
+        '--collect-data', 'escpos',
+        '--noconfirm',
+        '--clean'
+      ];
+      
+      console.log(`   Command: & "${pythonExe}" ${pyinstallerArgs.join(' ')}`);
+      
+      // Use spawn for better argument handling on Windows
+      const { spawnSync } = require('child_process');
+      const result = spawnSync(pythonExe, pyinstallerArgs, {
+        cwd: PROJECT_DIR,
+        stdio: 'inherit',
+        shell: false
+      });
+      
+      if (result.status !== 0) {
+        throw new Error(`PyInstaller exited with code ${result.status}`);
+      }
     } else {
-      activateCmd = `source ./pw_env/bin/activate && ${pyinstallerArgs}`;
+      // On Unix, use bash
+      const pyinstallerCmd = [
+        pythonExe, '-m', 'PyInstaller',
+        './src/kt_service.py',
+        useOnefile ? '--onefile' : '',
+        '--distpath', './kt_service',
+        `--add-data "config.yaml${dataSep}."`,
+        `--add-data "${escposPath}${dataSep}escpos"`,
+        '--collect-data', 'escpos',
+        '--noconfirm',
+        '--clean'
+      ].filter(Boolean).join(' ');
+      
+      console.log(`   Command: ${pyinstallerCmd}`);
+      
+      execSync(pyinstallerCmd, {
+        cwd: PROJECT_DIR,
+        stdio: 'inherit',
+        shell: '/bin/bash'
+      });
     }
-
-    execSync(activateCmd, {
-      cwd: PROJECT_DIR,
-      stdio: 'inherit',
-      shell: platform === 'win32' ? 'powershell.exe' : '/bin/bash'
-    });
 
     console.log('✅ Python service built successfully!');
     return true;
@@ -200,8 +241,10 @@ function buildService(args) {
 }
 
 // Verify build output
-function verifyBuild(platform) {
-  const executableName = platform === 'win32' ? 'kt_service.exe' : 'kt_service';
+function verifyBuild(targetPlatform) {
+  // Use OS platform to check for the built executable
+  const osPlatform = process.platform;
+  const executableName = osPlatform === 'win32' ? 'kt_service.exe' : 'kt_service';
   const executablePath = path.join(SERVICE_OUTPUT_DIR, executableName);
 
   if (fs.existsSync(executablePath)) {
