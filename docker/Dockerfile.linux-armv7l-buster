@@ -1,0 +1,98 @@
+# Dockerfile for building kt_service, print_service, tts_service for Linux ARMv7l (Raspberry Pi 3/4, 32-bit)
+# Compatible with Raspberry Pi OS Buster (GLIBC 2.28)
+# Uses Debian archive since Buster reached EOL in June 2024
+
+FROM --platform=linux/arm/v7 arm32v7/python:3.7-slim-buster
+
+# Update apt sources to use the archive (Buster is EOL)
+RUN sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list && \
+    sed -i '/stretch-updates/d' /etc/apt/sources.list && \
+    sed -i '/buster-updates/d' /etc/apt/sources.list
+
+# Install system dependencies with retry logic for network issues
+RUN apt-get update && \
+    for i in 1 2 3; do \
+        apt-get install -y --no-install-recommends \
+            build-essential \
+            gfortran \
+            ffmpeg \
+            libusb-1.0-0-dev \
+            libasound2-dev \
+            portaudio19-dev \
+            libsndfile1-dev \
+            libffi-dev \
+            libssl-dev \
+            libatlas-base-dev \
+            libopenblas-dev \
+        && break || (echo "Retry $i..." && sleep 5 && apt-get update); \
+    done && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Configure pip to use piwheels (pre-compiled ARM wheels) - MUCH FASTER
+RUN pip install --upgrade pip && \
+    echo "[global]\nextra-index-url=https://www.piwheels.org/simple" > /etc/pip.conf
+
+# Copy ARMv7l-specific requirements (excludes librosa/audiomentations/numba)
+COPY requirements-armv7l-buster.txt ./requirements.txt
+
+# Install Python dependencies using pre-built wheels where available
+# Use --prefer-binary to use wheels instead of building from source
+RUN pip install --no-cache-dir --prefer-binary wheel numpy && \
+    pip install --no-cache-dir --prefer-binary -r requirements.txt && \
+    pip install --no-cache-dir pyinstaller==5.13.2
+
+# Copy source code
+COPY src/ ./src/
+COPY config*.yaml ./
+
+# Build arguments
+ARG CONFIG_FILE=config.kitchntabs.prod.yaml
+
+# Copy the appropriate config file
+RUN cp ${CONFIG_FILE} config.yaml
+
+# Get escpos JSON files path
+RUN ESCPOS_PATH=$(python -c "import escpos; import os; print(os.path.dirname(escpos.__file__))") && \
+    echo "ESCPOS_PATH=$ESCPOS_PATH" > /tmp/escpos_path
+
+# Build all 3 services with PyInstaller
+# 1. kt_service (main WebSocket service)
+RUN . /tmp/escpos_path && \
+    python -m PyInstaller ./src/kt_service.py \
+    --onefile \
+    --distpath ./dist \
+    --add-data "config.yaml:." \
+    --add-data "$ESCPOS_PATH/*.json:escpos" \
+    --collect-data escpos \
+    --noconfirm \
+    --clean
+
+# 2. print_service (thermal printing service)
+RUN . /tmp/escpos_path && \
+    python -m PyInstaller ./src/print_service.py \
+    --onefile \
+    --distpath ./dist \
+    --add-data "config.yaml:." \
+    --add-data "$ESCPOS_PATH/*.json:escpos" \
+    --collect-data escpos \
+    --noconfirm \
+    --clean
+
+# 3. tts_service (text-to-speech service)
+RUN python -m PyInstaller ./src/tts_service.py \
+    --onefile \
+    --distpath ./dist \
+    --noconfirm \
+    --clean
+
+# Output directory - copy all 3 services
+RUN mkdir -p /output && \
+    cp ./dist/kt_service /output/kt_service && \
+    cp ./dist/print_service /output/print_service && \
+    cp ./dist/tts_service /output/tts_service
+
+CMD ["cp", "-r", "/output/.", "/host-output/"]

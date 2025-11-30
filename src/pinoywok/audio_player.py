@@ -1,9 +1,12 @@
 import threading
-import pyaudio
 import simpleaudio as sa
 from gtts import gTTS
 import tempfile
 import os
+
+# Note: pyaudio import removed - it was only used for audio INPUT (microphone)
+# which triggered unnecessary microphone permission requests on macOS.
+# TTS playback only needs audio OUTPUT which simpleaudio handles.
 
 # Optional imports for audio pitch shifting
 # These may not be available on ARMv7l due to llvmlite/numba compatibility
@@ -22,32 +25,11 @@ class AudioPlayer:
         self._audio_playing = False
         self._playing_salute = False
         
-        try:
-            self.p = pyaudio.PyAudio()
-            
-            # Check if any input devices exist
-            device_count = self.p.get_device_count()
-            has_input_device = False
-            
-            for i in range(device_count):
-                device_info = self.p.get_device_info_by_index(i)
-                if device_info.get('maxInputChannels') > 0:
-                    has_input_device = True
-                    break
-            
-            if has_input_device:
-                try:
-                    self.stream = self.p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8192)
-                except OSError as e:
-                    print(f"Error opening audio stream: {e}")
-                    self.stream = None
-            else:
-                print("No audio input devices found. Audio input disabled.")
-                self.stream = None
-        except Exception as e:
-            print(f"Failed to initialize audio system: {e}")
-            self.p = None
-            self.stream = None
+        # Note: We don't need PyAudio for TTS playback - simpleaudio handles output.
+        # Removing the input stream initialization to avoid unnecessary microphone 
+        # permission requests on macOS. The input stream was never used anyway.
+        self.p = None
+        self.stream = None
 
     def thread_generate_audio(self, text, audio_file=None, lang='es'):
         threading.Thread(target=self.generate_audio, args=(text, audio_file, lang)).start()

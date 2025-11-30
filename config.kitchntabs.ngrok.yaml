@@ -19,9 +19,26 @@ AUTH_ENDPOINT: "api/ws/auth"
 
 LOGS_PATH: "./logs/"
 
-POPPLER_PATH: C:\poppler-24.08.0\Library\bin
+# Poppler path for PDF conversion
+# Windows: C:\poppler-24.08.0\Library\bin
+# Linux/Mac: Leave empty (uses system poppler-utils)
+POPPLER_PATH: ""
+
+# Printer USB IDs
+# EPSON TM-m30: VENDOR=0x04b8, PRODUCT=0x0e20
+# POS58/PT-210: VENDOR=0x0FE6, PRODUCT=0x811E
 PRINTER_VENDOR: 0x04b8
 PRINTER_PRODUCT: 0x0e20
+
+# Alternative printer for Raspberry Pi (POS58/PT-210)
+# PRINTER_VENDOR: 0x0FE6
+# PRINTER_PRODUCT: 0x811E
+
+# Linux device path (for direct file printing)
+PRINTER_DEVICE_PATH: "/dev/usb/lp0"
+# CUPS printer name (optional)
+PRINTER_NAME: ""
+
 LIBUSB_PATH: ""
 WKHTMLTOPDF_PATH: ""
 ACROBAT_PATH: ""

@@ -1,0 +1,30 @@
+# Requirements for ARMv7l (Raspberry Pi 32-bit) on Buster (Python 3.7)
+# This is a simplified version compatible with Python 3.7 and GLIBC 2.28
+
+# scipy version compatible with Python 3.7
+scipy==1.7.3
+escpos==1.9
+gTTS==2.5.3
+# Jinja2 version compatible with Python 3.7
+Jinja2==3.0.3
+pdf2image==1.17.0
+pdfkit==1.0.0
+# Pillow version compatible with Python 3.7
+Pillow==9.5.0
+PyAudio==0.2.14
+# python-dotenv: 1.0.0+ requires Python 3.8, use 0.21.1 for Python 3.7
+python-dotenv==0.21.1
+python-socketio==5.7.2
+pyusb==1.2.1
+PyYAML==6.0.1
+# Requests version compatible with Python 3.7
+Requests==2.28.2
+simpleaudio==1.0.4
+soundfile==0.12.1
+# websockets version compatible with Python 3.7
+websockets==10.4
+psutil==5.9.5
+# aiohttp version compatible with Python 3.7
+aiohttp==3.8.5
+# pydub for mp3 to wav conversion (fallback for pitch shifting)
+pydub==0.25.1

@@ -44,6 +44,12 @@ const ARCH_CONFIG = {
     dockerfile: 'Dockerfile.linux-armv7l',
     platform: 'linux/arm/v7',
     outputSuffix: 'linux_armv7l'
+  },
+  // Buster variants for older Raspberry Pi OS (GLIBC 2.28)
+  'armv7l-buster': {
+    dockerfile: 'Dockerfile.linux-armv7l-buster',
+    platform: 'linux/arm/v7',
+    outputSuffix: 'linux_armv7l_buster'
   }
 };
 

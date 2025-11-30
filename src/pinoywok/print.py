@@ -12,13 +12,22 @@ from pdf2image import convert_from_path
 from escpos.printer import Usb, Network, File
 import usb.backend.libusb1 as libusb1
 
+# Import cross-platform thermal printer
+from pinoywok.thermal_printer import ThermalPrinter, print_pdf_crossplatform
 
 # Define flag for tracking if win32print is available
 _WIN32PRINT_AVAILABLE = False
 
 WINDOWS_OS = False
+LINUX_OS = False
+MACOS_OS = False
+
 if platform.system() == 'Windows' or os.name == 'nt':
     WINDOWS_OS = True
+elif platform.system() == 'Darwin':
+    MACOS_OS = True
+elif platform.system() == 'Linux':
+    LINUX_OS = True
 
 if WINDOWS_OS:
     try:
@@ -79,32 +88,49 @@ def print_order(tab_id, token, output, log_file, config_file):
             if chunk:
                 f.write(chunk)
     
-    # Try converting and printing the PDF
+    # Use cross-platform thermal printer
     try:
-        images = convert_from_path(output_file, 203, poppler_path=config.get('POPPLER_PATH'))
-        log(f"Successfully converted PDF to {len(images)} images")
-
-        if WINDOWS_OS:
-            if _WIN32PRINT_AVAILABLE:
-                for image in images:
-                    printPil(image)
-            else:
-                log("win32print is not available. Cannot print directly on Windows without it.")
-                # Open the file for viewing instead
-                subprocess.call(['start', output_file], shell=True)
-        else:
-            if sys.platform == 'darwin':  # for Mac OS
-                subprocess.call(['open', output_file])
-            elif sys.platform == 'linux':  # for Linux
-                subprocess.call(['xdg-open', output_file])
-            else:
-                log("Unsupported platform")
-                return False
+        # Initialize thermal printer with config
+        thermal_printer = ThermalPrinter(config)
         
-        return True
+        # Log printer status
+        status = thermal_printer.get_status()
+        log(f"Printer status: platform={status['platform']}, is_arm={status['is_arm']}, recommended={status['recommended']}")
+        log(f"Available methods: {status['methods']}")
+        
+        # Print the PDF
+        success = thermal_printer.print_pdf(output_file)
+        
+        if success:
+            log(f"Successfully printed tab {tab_id}")
+            return True
+        else:
+            log(f"Failed to print via thermal printer, trying fallback...")
+            # Fallback to opening the file
+            return _fallback_open_pdf(output_file)
         
     except Exception as e:
-        log(f"Error converting/printing PDF: {e}")
+        log(f"Error with thermal printer: {e}")
+        # Fallback to original behavior
+        return _fallback_open_pdf(output_file)
+
+
+def _fallback_open_pdf(output_file):
+    """Fallback method to open PDF when thermal printing fails."""
+    try:
+        if WINDOWS_OS:
+            subprocess.call(['start', output_file], shell=True)
+        elif MACOS_OS:
+            subprocess.call(['open', output_file])
+        elif LINUX_OS:
+            subprocess.call(['xdg-open', output_file])
+        else:
+            log("Unsupported platform for fallback")
+            return False
+        log(f"Opened PDF with system viewer: {output_file}")
+        return True
+    except Exception as e:
+        log(f"Fallback open failed: {e}")
         return False
               
 def printer(image):
