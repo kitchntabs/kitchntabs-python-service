@@ -1,6 +1,6 @@
-# Dockerfile for building kt_service, print_service, tts_service for Linux ARM64 (Raspberry Pi 4, 64-bit)
-# NOTE: Requires Raspberry Pi OS Bullseye or newer (GLIBC 2.31+)
-FROM --platform=linux/arm64 python:3.9-slim-bullseye
+# Dockerfile for building kt_service, print_service, tts_service for Linux ARM64 (Raspberry Pi 3/4/5, 64-bit)
+# Compatible with Raspberry Pi OS Bookworm (Debian 12) - GLIBC 2.36+
+FROM --platform=linux/arm64 python:3.11-slim-bookworm
 
 # Install system dependencies with retry logic for network issues
 # Added ffmpeg for pydub audio conversion (mp3 to wav)
@@ -15,6 +15,7 @@ RUN apt-get update && \
             libsndfile1-dev \
             libffi-dev \
             libssl-dev \
+            libopenblas-dev \
         && break || (echo "Retry $i..." && sleep 5 && apt-get update); \
     done && \
     rm -rf /var/lib/apt/lists/*
@@ -22,12 +23,14 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy ARM64-specific requirements first for better caching
+COPY requirements-arm64.txt ./requirements.txt
 
-# Install Python dependencies (some may need special handling for ARM)
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir pyinstaller
+# Install Python dependencies
+# ARM64 on Bookworm has excellent wheel support
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pyinstaller==6.3.0
 
 # Copy source code
 COPY src/ ./src/
@@ -39,9 +42,11 @@ ARG CONFIG_FILE=config.kitchntabs.prod.yaml
 # Copy the appropriate config file
 RUN cp ${CONFIG_FILE} config.yaml
 
-# Get escpos JSON files path
+# Get escpos path and list data files
 RUN ESCPOS_PATH=$(python -c "import escpos; import os; print(os.path.dirname(escpos.__file__))") && \
-    echo "ESCPOS_PATH=$ESCPOS_PATH" > /tmp/escpos_path
+    echo "ESCPOS_PATH=$ESCPOS_PATH" > /tmp/escpos_path && \
+    echo "Contents of escpos package:" && \
+    find $ESCPOS_PATH -type f \( -name "*.json" -o -name "*.yaml" -o -name "*.yml" \) | head -20
 
 # Build all 3 services with PyInstaller
 # 1. kt_service (main WebSocket service)
@@ -50,8 +55,10 @@ RUN . /tmp/escpos_path && \
     --onefile \
     --distpath ./dist \
     --add-data "config.yaml:." \
-    --add-data "$ESCPOS_PATH/*.json:escpos" \
-    --collect-data escpos \
+    --add-data "$ESCPOS_PATH/capabilities.json:escpos/" \
+    --hidden-import escpos.printer \
+    --hidden-import escpos.escpos \
+    --hidden-import escpos.capabilities \
     --noconfirm \
     --clean
 
@@ -61,8 +68,10 @@ RUN . /tmp/escpos_path && \
     --onefile \
     --distpath ./dist \
     --add-data "config.yaml:." \
-    --add-data "$ESCPOS_PATH/*.json:escpos" \
-    --collect-data escpos \
+    --add-data "$ESCPOS_PATH/capabilities.json:escpos/" \
+    --hidden-import escpos.printer \
+    --hidden-import escpos.escpos \
+    --hidden-import escpos.capabilities \
     --noconfirm \
     --clean
 

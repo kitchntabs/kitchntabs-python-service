@@ -2,7 +2,7 @@
 /**
  * Python Service Build Script
  * 
- * This script builds the kt_service Python application using PyInstaller.
+ * This script builds the Python services (kt_service, tts_service, print_service) using PyInstaller.
  * It handles config file copying based on CUSTOM_MODE and platform detection.
  * 
  * Usage:
@@ -25,6 +25,28 @@ const PROJECT_DIR = __dirname;
 const SRC_DIR = path.join(PROJECT_DIR, 'src');
 const SERVICE_OUTPUT_DIR = path.join(PROJECT_DIR, 'kt_service');
 const VENV_DIR = path.join(PROJECT_DIR, 'pw_env');
+
+// All services to build
+const SERVICES = [
+  {
+    name: 'kt_service',
+    source: './src/kt_service.py',
+    needsEscpos: true,
+    needsConfig: true
+  },
+  {
+    name: 'tts_service',
+    source: './src/tts_service.py',
+    needsEscpos: false,
+    needsConfig: false
+  },
+  {
+    name: 'print_service',
+    source: './src/print_service.py',
+    needsEscpos: true,
+    needsConfig: true
+  }
+];
 
 // Parse command line arguments
 function parseArgs() {
@@ -175,89 +197,131 @@ function buildService(args) {
   // PyInstaller data separator is ; on Windows, : on Unix
   const dataSep = osPlatform === 'win32' ? ';' : ':';
 
-  console.log('🔧 Building Python service...');
+  console.log('🔧 Building Python services...');
   console.log(`   OS Platform: ${osPlatform}`);
   console.log(`   Target Platform: ${targetPlatform}`);
   console.log(`   Python: ${pythonExe}`);
+  console.log(`   Services to build: ${SERVICES.map(s => s.name).join(', ')}`);
+  console.log('');
 
-  try {
-    // Build command differently for Windows vs Unix
-    if (osPlatform === 'win32') {
-      // On Windows/PowerShell, use & operator for paths with spaces
-      const pyinstallerArgs = [
-        '-m', 'PyInstaller',
-        './src/kt_service.py',
-        '--onefile',
-        '--distpath', './kt_service',
-        '--add-data', `config.yaml${dataSep}.`,
-        '--add-data', `${escposPath}${dataSep}escpos`,
-        '--collect-data', 'escpos',
-        '--noconfirm',
-        '--clean'
-      ];
-      
-      console.log(`   Command: & "${pythonExe}" ${pyinstallerArgs.join(' ')}`);
-      
-      // Use spawn for better argument handling on Windows
-      const { spawnSync } = require('child_process');
-      const result = spawnSync(pythonExe, pyinstallerArgs, {
-        cwd: PROJECT_DIR,
-        stdio: 'inherit',
-        shell: false
-      });
-      
-      if (result.status !== 0) {
-        throw new Error(`PyInstaller exited with code ${result.status}`);
+  let allSuccess = true;
+
+  for (const service of SERVICES) {
+    console.log(`\n🏗️  Building ${service.name}...`);
+    
+    try {
+      // Build command differently for Windows vs Unix
+      if (osPlatform === 'win32') {
+        // On Windows/PowerShell, use & operator for paths with spaces
+        const pyinstallerArgs = [
+          '-m', 'PyInstaller',
+          service.source,
+          '--onefile',
+          '--distpath', './kt_service',
+        ];
+        
+        // Add config data if needed
+        if (service.needsConfig) {
+          pyinstallerArgs.push('--add-data', `config.yaml${dataSep}.`);
+        }
+        
+        // Add escpos data if needed
+        if (service.needsEscpos) {
+          pyinstallerArgs.push('--add-data', `${escposPath}${dataSep}escpos`);
+          pyinstallerArgs.push('--collect-data', 'escpos');
+        }
+        
+        pyinstallerArgs.push('--noconfirm', '--clean');
+        
+        console.log(`   Command: & "${pythonExe}" ${pyinstallerArgs.join(' ')}`);
+        
+        // Use spawn for better argument handling on Windows
+        const { spawnSync } = require('child_process');
+        const result = spawnSync(pythonExe, pyinstallerArgs, {
+          cwd: PROJECT_DIR,
+          stdio: 'inherit',
+          shell: false
+        });
+        
+        if (result.status !== 0) {
+          throw new Error(`PyInstaller exited with code ${result.status}`);
+        }
+      } else {
+        // On Unix, use bash
+        const pyinstallerParts = [
+          pythonExe, '-m', 'PyInstaller',
+          service.source,
+          useOnefile ? '--onefile' : '',
+          '--distpath', './kt_service',
+        ];
+        
+        // Add config data if needed
+        if (service.needsConfig) {
+          pyinstallerParts.push(`--add-data "config.yaml${dataSep}."`);
+        }
+        
+        // Add escpos data if needed
+        if (service.needsEscpos) {
+          pyinstallerParts.push(`--add-data "${escposPath}${dataSep}escpos"`);
+          pyinstallerParts.push('--collect-data', 'escpos');
+        }
+        
+        pyinstallerParts.push('--noconfirm', '--clean');
+        
+        const pyinstallerCmd = pyinstallerParts.filter(Boolean).join(' ');
+        
+        console.log(`   Command: ${pyinstallerCmd}`);
+        
+        execSync(pyinstallerCmd, {
+          cwd: PROJECT_DIR,
+          stdio: 'inherit',
+          shell: '/bin/bash'
+        });
       }
-    } else {
-      // On Unix, use bash
-      const pyinstallerCmd = [
-        pythonExe, '-m', 'PyInstaller',
-        './src/kt_service.py',
-        useOnefile ? '--onefile' : '',
-        '--distpath', './kt_service',
-        `--add-data "config.yaml${dataSep}."`,
-        `--add-data "${escposPath}${dataSep}escpos"`,
-        '--collect-data', 'escpos',
-        '--noconfirm',
-        '--clean'
-      ].filter(Boolean).join(' ');
-      
-      console.log(`   Command: ${pyinstallerCmd}`);
-      
-      execSync(pyinstallerCmd, {
-        cwd: PROJECT_DIR,
-        stdio: 'inherit',
-        shell: '/bin/bash'
-      });
-    }
 
-    console.log('✅ Python service built successfully!');
-    return true;
-  } catch (error) {
-    console.error('❌ Build failed:', error.message);
-    return false;
+      console.log(`✅ ${service.name} built successfully!`);
+    } catch (error) {
+      console.error(`❌ Build failed for ${service.name}:`, error.message);
+      allSuccess = false;
+    }
   }
+
+  return allSuccess;
 }
 
 // Verify build output
 function verifyBuild(targetPlatform) {
   // Use OS platform to check for the built executable
   const osPlatform = process.platform;
-  const executableName = osPlatform === 'win32' ? 'kt_service.exe' : 'kt_service';
-  const executablePath = path.join(SERVICE_OUTPUT_DIR, executableName);
+  const exeExt = osPlatform === 'win32' ? '.exe' : '';
+  
+  let allVerified = true;
+  let totalSize = 0;
+  
+  console.log('\n📋 Verifying built services...');
+  
+  for (const service of SERVICES) {
+    const executableName = service.name + exeExt;
+    const executablePath = path.join(SERVICE_OUTPUT_DIR, executableName);
 
-  if (fs.existsSync(executablePath)) {
-    const stats = fs.statSync(executablePath);
-    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-    console.log(`✅ Build verified: ${executablePath}`);
-    console.log(`   Size: ${sizeMB} MB`);
-    return true;
-  } else {
-    console.error('❌ Build verification failed: executable not found');
-    console.error(`   Expected: ${executablePath}`);
-    return false;
+    if (fs.existsSync(executablePath)) {
+      const stats = fs.statSync(executablePath);
+      const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+      totalSize += stats.size;
+      console.log(`   ✅ ${service.name}: ${sizeMB} MB`);
+    } else {
+      console.error(`   ❌ ${service.name}: not found`);
+      console.error(`      Expected: ${executablePath}`);
+      allVerified = false;
+    }
   }
+  
+  if (allVerified) {
+    const totalMB = (totalSize / (1024 * 1024)).toFixed(2);
+    console.log(`\n✅ All ${SERVICES.length} services verified (Total: ${totalMB} MB)`);
+  }
+  
+  return allVerified;
 }
 
 // Copy the built service to dash-frontend for electron-builder

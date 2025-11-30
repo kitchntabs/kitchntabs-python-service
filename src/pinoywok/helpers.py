@@ -2,7 +2,6 @@
 
 from datetime import datetime
 import usb.core
-#import usb.util
 import usb.backend.libusb1
 from escpos.printer import Usb
 from pinoywok.config import config

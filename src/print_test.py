@@ -5,7 +5,7 @@ from pinoywok import config
 import sys
 from pinoywok.args import args
 from pinoywok.config import config
-from pinoywok.print import printPil
+from pinoywok.printer import printPil
 
 WINDOWS_OS = False
 if platform.system() == 'Windows' or os.name == 'nt':
