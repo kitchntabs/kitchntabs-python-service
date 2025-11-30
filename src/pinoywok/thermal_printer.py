@@ -182,6 +182,12 @@ class ThermalPrinter:
         elif IS_LINUX:
             return 'cups' if self.available_methods['cups'] else 'pyusb'
         elif IS_MACOS:
+            # For macOS, prefer direct pyusb over escpos_usb (more reliable)
+            # escpos_usb can have timeout issues with certain USB thermal printers
+            if self.available_methods['pyusb']:
+                return 'pyusb'
+            elif self.available_methods['escpos_usb']:
+                return 'escpos_usb'
             return 'cups'
         return 'cups'
     
@@ -253,6 +259,25 @@ class ThermalPrinter:
     
     def _pdf_to_images(self, pdf_path: str) -> Optional[List[Image.Image]]:
         """Convert PDF to list of PIL Images."""
+        # Try PyMuPDF first (no external dependencies like poppler)
+        try:
+            import fitz
+            print(f"Converting PDF using PyMuPDF...")
+            doc = fitz.open(pdf_path)
+            images = []
+            for page in doc:
+                pix = page.get_pixmap(dpi=self.DPI)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                images.append(img)
+            doc.close()
+            print(f"Successfully converted {len(images)} page(s) using PyMuPDF")
+            return images
+        except ImportError:
+            print("PyMuPDF not available, trying pdf2image...")
+        except Exception as e:
+            print(f"PyMuPDF failed: {e}, trying pdf2image...")
+        
+        # Fallback to pdf2image (requires poppler)
         try:
             from pdf2image import convert_from_path
             
@@ -262,29 +287,47 @@ class ThermalPrinter:
                 
             return convert_from_path(pdf_path, **kwargs)
         except ImportError:
-            print("Error: pdf2image not installed. Run: pip install pdf2image")
+            print("Error: Neither PyMuPDF nor pdf2image available")
             return None
         except Exception as e:
-            print(f"Error converting PDF: {e}")
-            # Try PyMuPDF as fallback
-            try:
-                import fitz
-                doc = fitz.open(pdf_path)
-                images = []
-                for page in doc:
-                    pix = page.get_pixmap(dpi=self.DPI)
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    images.append(img)
-                return images
-            except ImportError:
-                print("Fallback failed: PyMuPDF not installed")
-                return None
-            except Exception as e2:
-                print(f"Fallback failed: {e2}")
-                return None
+            print(f"Error converting PDF with pdf2image: {e}")
+            return None
+    
+    def _trim_whitespace(self, image: Image.Image) -> Image.Image:
+        """Remove whitespace from bottom (and optionally top) of image."""
+        # Convert to grayscale for analysis
+        gray = image.convert('L')
+        pixels = list(gray.getdata())
+        width = gray.width
+        height = gray.height
+        
+        # Find the last row that has non-white pixels (threshold 250)
+        last_content_row = height - 1
+        for y in range(height - 1, -1, -1):
+            row_start = y * width
+            row_pixels = pixels[row_start:row_start + width]
+            # Check if row has any non-white pixels
+            if any(p < 250 for p in row_pixels):
+                last_content_row = y
+                break
+        
+        # Add a small margin at the bottom (e.g., 20 pixels)
+        margin = 20
+        crop_bottom = min(last_content_row + margin, height)
+        
+        # Crop the image if we found whitespace
+        if crop_bottom < height:
+            original_height = height
+            image = image.crop((0, 0, width, crop_bottom))
+            print(f"Trimmed whitespace: {original_height} -> {crop_bottom} pixels (saved {original_height - crop_bottom}px)")
+        
+        return image
     
     def _prepare_image(self, image: Image.Image) -> Image.Image:
-        """Prepare image for thermal printing (resize, convert to B&W)."""
+        """Prepare image for thermal printing (trim whitespace, resize, convert to B&W)."""
+        # First trim whitespace from bottom
+        image = self._trim_whitespace(image)
+        
         # Resize to printer width
         if image.width != self.PRINTER_WIDTH_PIXELS:
             ratio = self.PRINTER_WIDTH_PIXELS / image.width
