@@ -183,6 +183,7 @@ async function buildArch(arch, configFile, cleanImages) {
     
     const buildCmd = [
       'docker', 'buildx', 'build',
+      '--no-cache',
       '--platform', config.platform,
       '--build-arg', `CONFIG_FILE=${configFile}`,
       '--build-arg', `OUTPUT_NAME=${outputName}`,

@@ -197,6 +197,33 @@ function buildService(args) {
   // PyInstaller data separator is ; on Windows, : on Unix
   const dataSep = osPlatform === 'win32' ? ';' : ':';
 
+  // Hidden imports needed for proper bundling
+  const hiddenImports = [
+    'jaraco',
+    'jaraco.text',
+    'jaraco.functools', 
+    'jaraco.context',
+    'jaraco.classes',
+    'importlib_metadata',
+    'importlib.metadata',
+    'pkg_resources',
+    'pkg_resources.extern',
+    'fitz',
+    'fitz.fitz',
+    'PIL',
+    'PIL._tkinter_finder',
+    'packaging',
+    'packaging.version',
+    'packaging.specifiers',
+    'packaging.requirements',
+  ];
+
+  // Packages that need all submodules collected
+  const collectAllPackages = [
+    'jaraco',
+    'pkg_resources',
+  ];
+
   console.log('🔧 Building Python services...');
   console.log(`   OS Platform: ${osPlatform}`);
   console.log(`   Target Platform: ${targetPlatform}`);
@@ -219,6 +246,16 @@ function buildService(args) {
           '--onefile',
           '--distpath', './kt_service',
         ];
+        
+        // Add hidden imports
+        hiddenImports.forEach(imp => {
+          pyinstallerArgs.push('--hidden-import', imp);
+        });
+        
+        // Add collect-all for namespace packages (like jaraco)
+        collectAllPackages.forEach(pkg => {
+          pyinstallerArgs.push('--collect-all', pkg);
+        });
         
         // Add config data if needed
         if (service.needsConfig) {
@@ -255,6 +292,16 @@ function buildService(args) {
           '--distpath', './kt_service',
         ];
         
+        // Add hidden imports
+        hiddenImports.forEach(imp => {
+          pyinstallerParts.push(`--hidden-import ${imp}`);
+        });
+        
+        // Add collect-all for namespace packages (like jaraco)
+        collectAllPackages.forEach(pkg => {
+          pyinstallerParts.push(`--collect-all ${pkg}`);
+        });
+        
         // Add config data if needed
         if (service.needsConfig) {
           pyinstallerParts.push(`--add-data "config.yaml${dataSep}."`);
@@ -263,7 +310,7 @@ function buildService(args) {
         // Add escpos data if needed
         if (service.needsEscpos) {
           pyinstallerParts.push(`--add-data "${escposPath}${dataSep}escpos"`);
-          pyinstallerParts.push('--collect-data', 'escpos');
+          pyinstallerParts.push('--collect-data escpos');
         }
         
         pyinstallerParts.push('--noconfirm', '--clean');

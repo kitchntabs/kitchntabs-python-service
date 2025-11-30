@@ -59,6 +59,14 @@ RUN . /tmp/escpos_path && \
     --hidden-import escpos.printer \
     --hidden-import escpos.escpos \
     --hidden-import escpos.capabilities \
+    --hidden-import jaraco \
+    --hidden-import jaraco.text \
+    --hidden-import jaraco.functools \
+    --hidden-import jaraco.context \
+    --hidden-import pkg_resources \
+    --hidden-import importlib_metadata \
+    --collect-all jaraco \
+    --collect-all pkg_resources \
     --noconfirm \
     --clean
 
@@ -72,6 +80,14 @@ RUN . /tmp/escpos_path && \
     --hidden-import escpos.printer \
     --hidden-import escpos.escpos \
     --hidden-import escpos.capabilities \
+    --hidden-import jaraco \
+    --hidden-import jaraco.text \
+    --hidden-import jaraco.functools \
+    --hidden-import jaraco.context \
+    --hidden-import pkg_resources \
+    --hidden-import importlib_metadata \
+    --collect-all jaraco \
+    --collect-all pkg_resources \
     --noconfirm \
     --clean
 
@@ -79,6 +95,14 @@ RUN . /tmp/escpos_path && \
 RUN python -m PyInstaller ./src/tts_service.py \
     --onefile \
     --distpath ./dist \
+    --hidden-import jaraco \
+    --hidden-import jaraco.text \
+    --hidden-import jaraco.functools \
+    --hidden-import jaraco.context \
+    --hidden-import pkg_resources \
+    --hidden-import importlib_metadata \
+    --collect-all jaraco \
+    --collect-all pkg_resources \
     --noconfirm \
     --clean
 
