@@ -88,6 +88,8 @@ def print_order(tab_id, token, output, log_file, config_file):
             if chunk:
                 f.write(chunk)
     
+    log(f"PDF saved to: {output_file}")
+    
     # Use cross-platform thermal printer
     try:
         # Initialize thermal printer with config
@@ -99,20 +101,24 @@ def print_order(tab_id, token, output, log_file, config_file):
         log(f"Available methods: {status['methods']}")
         
         # Print the PDF
+        log(f"Attempting to print PDF with thermal printer...")
         success = thermal_printer.print_pdf(output_file)
         
         if success:
-            log(f"Successfully printed tab {tab_id}")
+            log(f"✅ Successfully printed tab {tab_id}")
             return True
         else:
-            log(f"Failed to print via thermal printer, trying fallback...")
-            # Fallback to opening the file
-            return _fallback_open_pdf(output_file)
+            log(f"❌ Failed to print via thermal printer (success=False)")
+            log(f"⚠️ NOT opening PDF as fallback - returning False")
+            # Don't use fallback - we want printing, not opening
+            return False
         
     except Exception as e:
-        log(f"Error with thermal printer: {e}")
-        # Fallback to original behavior
-        return _fallback_open_pdf(output_file)
+        log(f"❌ Error with thermal printer: {e}")
+        import traceback
+        log(f"Traceback: {traceback.format_exc()}")
+        # Don't use fallback - we want printing, not opening
+        return False
 
 
 def _fallback_open_pdf(output_file):

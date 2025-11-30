@@ -114,9 +114,19 @@ async def websocket_handler(message_bytes):
             message_type = json_message["type"]
             log(f"Message Type: {message_type}")
             if "print" in message_type:
-                tab_id = json_message.get("data", {}).get("tab_id", "")
+                # Handle nested data structure from Laravel notifications
+                inner_data = json_message.get("data", {})
+                tab_id = inner_data.get("tab_id", "")
+                # If tab_id not found at first level, check nested data
+                if not tab_id and isinstance(inner_data, dict):
+                    tab_id = inner_data.get("data", {}).get("tab_id", "")
                 log(f"Print Tab id: {tab_id}")
-                print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)            
+                if tab_id:
+                    log(f"Calling print_order for tab {tab_id}...")
+                    print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)
+                    log(f"print_order completed for tab {tab_id}")
+                else:
+                    log("ERROR: No tab_id found in message!")
             if "speech" in message_type:
                 audio_player = AudioPlayer()
                 message = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
@@ -237,8 +247,8 @@ async def receive_remote_ws_messages(socket):
                         if event_type == 'pusher:subscription_succeeded':
                             log(f"Successfully subscribed to channel: {message_data.get('channel', 'unknown')}")
                             # Speak connected message when subscription succeeds
-                            connected_msg = get_speech_message('SPEECH_CONNECTED_MESSAGE', DEFAULT_CONNECTED_MESSAGE)
-                            speak(connected_msg)
+                            #connected_msg = get_speech_message('SPEECH_CONNECTED_MESSAGE', DEFAULT_CONNECTED_MESSAGE)
+                            #speak(connected_msg)
                         elif event_type == 'pusher:ping':
                             log("Received ping, sending pong")
                             await socket.send(json.dumps({"event": "pusher:pong"}))
@@ -306,8 +316,8 @@ async def main():
     try:
         audio_player = AudioPlayer()
         log("Audio player initialized")
-        welcome_msg = get_speech_message('SPEECH_WELCOME_MESSAGE', DEFAULT_WELCOME_MESSAGE)
-        speak(welcome_msg)
+        #welcome_msg = get_speech_message('SPEECH_WELCOME_MESSAGE', DEFAULT_WELCOME_MESSAGE)
+        #speak(welcome_msg)
     except Exception as e:
         log(f"Warning: Could not initialize audio player: {e}")
 
