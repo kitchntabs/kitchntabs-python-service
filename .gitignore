@@ -37,3 +37,5 @@ kt_service_builds/
 
 # Temporary config file
 config.yaml
+src/__pycache__/
+src/pinoywok/__pycache__/
