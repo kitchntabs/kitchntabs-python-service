@@ -105,16 +105,16 @@ def print_order(tab_id, token, output, log_file, config_file):
         success = thermal_printer.print_pdf(output_file)
         
         if success:
-            log(f"✅ Successfully printed tab {tab_id}")
+            log(f"[OK] Successfully printed tab {tab_id}")
             return True
         else:
-            log(f"❌ Failed to print via thermal printer (success=False)")
-            log(f"⚠️ NOT opening PDF as fallback - returning False")
+            log(f"[ERROR] Failed to print via thermal printer (success=False)")
+            log(f"[WARN] NOT opening PDF as fallback - returning False")
             # Don't use fallback - we want printing, not opening
             return False
         
     except Exception as e:
-        log(f"❌ Error with thermal printer: {e}")
+        log(f"[ERROR] Error with thermal printer: {e}")
         import traceback
         log(f"Traceback: {traceback.format_exc()}")
         # Don't use fallback - we want printing, not opening

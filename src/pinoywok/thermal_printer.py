@@ -425,7 +425,7 @@ class ThermalPrinter:
             hDC.EndDoc()
             hDC.DeleteDC()
             
-            print("✅ Printed via Windows GDI")
+            print("[OK] Printed via Windows GDI")
             return True
             
         except Exception as e:
@@ -486,7 +486,7 @@ class ThermalPrinter:
             dev.write(ep_addr, b'\n\n\n')
             dev.write(ep_addr, b'\x1d\x56\x01')  # Partial cut
             
-            print(f"✅ Printed via pyusb ({len(raster_data)} bytes)")
+            print(f"[OK] Printed via pyusb ({len(raster_data)} bytes)")
             return True
             
         except Exception as e:
@@ -511,7 +511,7 @@ class ThermalPrinter:
             with open(self.device_path, 'wb') as f:
                 f.write(data)
             
-            print(f"✅ Printed via device file ({len(data)} bytes)")
+            print(f"[OK] Printed via device file ({len(data)} bytes)")
             return True
             
         except PermissionError:
@@ -547,7 +547,7 @@ class ThermalPrinter:
             os.unlink(temp_path)
             
             if result.returncode == 0:
-                print(f"✅ Printed via CUPS")
+                print(f"[OK] Printed via CUPS")
                 return True
             else:
                 print(f"Error: CUPS print failed: {result.stderr}")
@@ -576,7 +576,7 @@ class ThermalPrinter:
             p.cut()
             p.close()
             
-            print("✅ Printed via python-escpos USB")
+            print("[OK] Printed via python-escpos USB")
             return True
             
         except Exception as e:
