@@ -34,6 +34,9 @@ PING_REMOTE_INTERVAL = 180
 PING_ACTION = "ping"
 PING_MESSAGE = "pong"
 
+# Alarm duration - must match frontend CustomNotificationsProcessing.tsx
+ALARM_DURATION_SECONDS = 10
+
 # Default welcome messages (can be overridden by config)
 DEFAULT_WELCOME_MESSAGE = "Bienvenido a Kitchen Tabs"
 DEFAULT_CONNECTED_MESSAGE = "Conectado al servidor"
@@ -129,9 +132,20 @@ async def websocket_handler(message_bytes):
                     log("ERROR: No tab_id found in message!")
             if "speech" in message_type:
                 audio_player = AudioPlayer()
-                message = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
-                log(f"Speech Message: {message}")
-                audio_player.thread_generate_audio(message, "notification.mp3")
+                speech_text = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
+                log(f"Speech Message: {speech_text}")
+                
+                # Check if this is an order/alarm notification that has frontend alarm
+                is_order_notification = json_message.get("data", {}).get("new") == "CONFIRMED"
+                is_alarm = json_message.get("data", {}).get("alarm") == "true" or json_message.get("data", {}).get("alarm") == True
+                
+                # If it's an order notification, wait for frontend alarm to complete before TTS
+                if is_order_notification or is_alarm:
+                    log(f"🔔 Order/Alarm notification detected - waiting {ALARM_DURATION_SECONDS}s for frontend alarm to complete before TTS...")
+                    await asyncio.sleep(ALARM_DURATION_SECONDS)
+                    log(f"✅ Alarm wait complete - now playing TTS")
+                
+                audio_player.thread_generate_audio(speech_text, "notification.mp3")
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")
