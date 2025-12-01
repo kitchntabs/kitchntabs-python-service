@@ -3,6 +3,7 @@ import simpleaudio as sa
 from gtts import gTTS
 import tempfile
 import os
+import time
 
 # Note: pyaudio import removed - it was only used for audio INPUT (microphone)
 # which triggered unnecessary microphone permission requests on macOS.
@@ -31,11 +32,26 @@ class AudioPlayer:
         self.p = None
         self.stream = None
 
-    def thread_generate_audio(self, text, audio_file=None, lang='es'):
-        threading.Thread(target=self.generate_audio, args=(text, audio_file, lang)).start()
+    def thread_generate_audio(self, text, audio_file=None, lang='es', delay_seconds=0):
+        """Generate and play audio in a separate thread.
+        
+        Args:
+            text: The text to convert to speech
+            audio_file: Optional path to save the audio file
+            lang: Language code for TTS (default: 'es')
+            delay_seconds: Seconds to wait before playing audio (default: 0)
+                          Use this to wait for frontend alarm to complete
+        """
+        threading.Thread(target=self.generate_audio, args=(text, audio_file, lang, delay_seconds)).start()
 
-    def generate_audio(self, text, audio_file=None, lang='es'):
+    def generate_audio(self, text, audio_file=None, lang='es', delay_seconds=0):
         try:
+            # Wait for specified delay (e.g., for frontend alarm to complete)
+            if delay_seconds > 0:
+                print(f"🔔 TTS waiting {delay_seconds}s for alarm to complete...")
+                time.sleep(delay_seconds)
+                print(f"✅ TTS delay complete - now generating speech")
+            
             # Use temp directory if no file specified (for packaged apps)
             if audio_file is None:
                 temp_dir = tempfile.gettempdir()

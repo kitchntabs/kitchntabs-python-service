@@ -139,13 +139,13 @@ async def websocket_handler(message_bytes):
                 is_order_notification = json_message.get("data", {}).get("new") == "CONFIRMED"
                 is_alarm = json_message.get("data", {}).get("alarm") == "true" or json_message.get("data", {}).get("alarm") == True
                 
-                # If it's an order notification, wait for frontend alarm to complete before TTS
-                if is_order_notification or is_alarm:
-                    log(f"🔔 Order/Alarm notification detected - waiting {ALARM_DURATION_SECONDS}s for frontend alarm to complete before TTS...")
-                    await asyncio.sleep(ALARM_DURATION_SECONDS)
-                    log(f"✅ Alarm wait complete - now playing TTS")
+                # Calculate delay - if order/alarm, wait for frontend alarm to complete
+                delay = ALARM_DURATION_SECONDS if (is_order_notification or is_alarm) else 0
+                if delay > 0:
+                    log(f"🔔 Order/Alarm notification - TTS will start after {delay}s (non-blocking)")
                 
-                audio_player.thread_generate_audio(speech_text, "notification.mp3")
+                # Non-blocking: delay happens inside the audio thread
+                audio_player.thread_generate_audio(speech_text, "notification.mp3", delay_seconds=delay)
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")
