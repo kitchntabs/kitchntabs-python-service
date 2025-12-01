@@ -34,3 +34,10 @@ psutil==7.0.0
 pdf2image==1.17.0
 pdfkit==1.0.0
 Pillow==10.4.0
+PyMuPDF==1.24.10
+
+# Required for PyInstaller bundling (namespace packages)
+setuptools<70.0.0
+jaraco.text
+jaraco.functools
+jaraco.context

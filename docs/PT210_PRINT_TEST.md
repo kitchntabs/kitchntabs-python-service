@@ -4,23 +4,50 @@ This document describes how to set up and test the GOOJPRT PT-210 portable therm
 
 ## Table of Contents
 
-- [Printer Specifications](#printer-specifications)
-- [Windows Setup](#windows-setup)
-  - [Driver Installation](#driver-installation)
-  - [Quick Start (Windows)](#quick-start-windows)
-- [Linux / Raspberry Pi Setup](#linux--raspberry-pi-setup)
-  - [Installation](#installation)
-  - [USB Permissions](#usb-permissions)
-  - [CUPS Setup](#cups-setup-optional)
-  - [Quick Start (Linux)](#quick-start-linux)
-- [Test Scripts](#test-scripts)
-  - [Text Print Test](#1-text-print-test-pos58_text_testpy)
-  - [PDF Print Test](#2-pdf-print-test-pos58_pdf_testpy)
-  - [Linux Test](#3-linux-test-pos58_linux_testpy)
-- [Print Methods](#print-methods)
-- [ESC/POS Command Reference](#common-escpos-commands)
-- [Troubleshooting](#troubleshooting)
-- [Integration with KitchenTabs](#integration-with-kitchntabs)
+- [PT-210 / POS58 Thermal Printer Setup \& Testing Guide](#pt-210--pos58-thermal-printer-setup--testing-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Printer Specifications](#printer-specifications)
+  - [Windows Setup](#windows-setup)
+    - [Driver Installation](#driver-installation)
+      - [Prerequisites](#prerequisites)
+      - [Installation Steps](#installation-steps)
+    - [Quick Start (Windows)](#quick-start-windows)
+  - [Linux / Raspberry Pi Setup](#linux--raspberry-pi-setup)
+    - [Installation](#installation)
+    - [USB Permissions](#usb-permissions)
+    - [CUPS Setup (Optional)](#cups-setup-optional)
+    - [Quick Start (Linux)](#quick-start-linux)
+  - [Test Scripts](#test-scripts)
+    - [1. Text Print Test (`pos58_text_test.py`)](#1-text-print-test-pos58_text_testpy)
+    - [2. PDF Print Test (`pos58_pdf_test.py`)](#2-pdf-print-test-pos58_pdf_testpy)
+    - [3. General Test (`pos58_test.py`)](#3-general-test-pos58_testpy)
+    - [4. Linux Test (`pos58_linux_test.py`)](#4-linux-test-pos58_linux_testpy)
+  - [Test Results Summary](#test-results-summary)
+  - [Print Methods](#print-methods)
+    - [1. Raw ESC/POS Commands (Text Only)](#1-raw-escpos-commands-text-only)
+    - [2. Windows GDI (Image-based)](#2-windows-gdi-image-based)
+    - [3. Linux - Device File (Simplest)](#3-linux---device-file-simplest)
+    - [4. Linux - python-escpos](#4-linux---python-escpos)
+    - [5. Linux - CUPS](#5-linux---cups)
+  - [Common ESC/POS Commands](#common-escpos-commands)
+  - [Troubleshooting](#troubleshooting)
+    - [Printer Not Found](#printer-not-found)
+    - [Print Job Stuck](#print-job-stuck)
+    - [Paper Not Feeding](#paper-not-feeding)
+    - [Garbled Output](#garbled-output)
+    - [Linux: Permission Denied](#linux-permission-denied)
+    - [Linux: Device Not Found](#linux-device-not-found)
+    - [Linux: libusb Error](#linux-libusb-error)
+    - [Raspberry Pi: Slow Printing](#raspberry-pi-slow-printing)
+  - [Integration with KitchenTabs](#integration-with-kitchentabs)
+  - [Files](#files)
+  - [References](#references)
+- [Stop kt\_service first](#stop-kt_service-first)
+- [Test print using the bundled print service](#test-print-using-the-bundled-print-service)
+- [Create venv](#create-venv)
+- [Activate and install](#activate-and-install)
+- [Test](#test)
+- [Deactivate when done](#deactivate-when-done)
 
 ## Printer Specifications
 
@@ -654,3 +681,41 @@ PRINTER_METHOD: "device"  # or "escpos", "cups"
 
 **Last Updated:** November 29, 2025  
 **Tested On:** Windows 10, Python 3.11, GOOJPRT PT-210
+
+
+
+In raspberry
+
+On newer Raspberry Pi OS (Bookworm), Python packages need to be installed in a virtual environment. But since the KitchnTabs app already has its Python bundled, let's use the bundled print service instead:
+
+Option 1: Use the bundled print_service directly
+# Stop kt_service first
+pkill -f kt_service
+
+# Test print using the bundled print service
+/opt/kitchntabs/resources/python-service/print_service test
+
+
+# Create venv
+python3 -m venv ~/printer_test
+
+# Activate and install
+source ~/printer_test/bin/activate
+pip install python-escpos pyusb
+
+# Test
+python3 -c "
+from escpos.printer import Usb
+p = Usb(0x0fe6, 0x811e)
+p.text('Hello PT-210!\n')
+p.cut()
+p.close()
+print('Success!')
+"
+
+# Deactivate when done
+deactivate
+
+or: sudo apt install python3-usb python3-escpos
+
+

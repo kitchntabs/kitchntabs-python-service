@@ -42,20 +42,29 @@ ARG CONFIG_FILE=config.kitchntabs.prod.yaml
 # Copy the appropriate config file
 RUN cp ${CONFIG_FILE} config.yaml
 
-# Get escpos path and list data files
+# Get escpos path and prepare capabilities structure
+# python-escpos 3.1 has capabilities.json at root level, but code expects it at escpos/capabilities/
 RUN ESCPOS_PATH=$(python -c "import escpos; import os; print(os.path.dirname(escpos.__file__))") && \
     echo "ESCPOS_PATH=$ESCPOS_PATH" > /tmp/escpos_path && \
     echo "Contents of escpos package:" && \
-    find $ESCPOS_PATH -type f \( -name "*.json" -o -name "*.yaml" -o -name "*.yml" \) | head -20
+    find $ESCPOS_PATH -type f \( -name "*.json" -o -name "*.yaml" -o -name "*.yml" \) && \
+    echo "---" && \
+    # Create capabilities folder structure for PyInstaller bundling
+    mkdir -p /tmp/escpos_data/capabilities && \
+    cp $ESCPOS_PATH/capabilities.json /tmp/escpos_data/capabilities/ && \
+    echo "Created capabilities folder with capabilities.json"
 
 # Build all 3 services with PyInstaller
 # 1. kt_service (main WebSocket service)
-RUN . /tmp/escpos_path && \
+# Note: Bundle capabilities.json to escpos/capabilities/ to match code expectations
+RUN ESCPOS_PATH=$(cat /tmp/escpos_path | cut -d= -f2) && \
     python -m PyInstaller ./src/kt_service.py \
     --onefile \
     --distpath ./dist \
     --add-data "config.yaml:." \
-    --add-data "$ESCPOS_PATH/capabilities.json:escpos/" \
+    --add-data "/tmp/escpos_data/capabilities:escpos/capabilities" \
+    --add-data "$ESCPOS_PATH:escpos" \
+    --collect-submodules escpos \
     --hidden-import escpos.printer \
     --hidden-import escpos.escpos \
     --hidden-import escpos.capabilities \
@@ -71,12 +80,14 @@ RUN . /tmp/escpos_path && \
     --clean
 
 # 2. print_service (thermal printing service)
-RUN . /tmp/escpos_path && \
+RUN ESCPOS_PATH=$(cat /tmp/escpos_path | cut -d= -f2) && \
     python -m PyInstaller ./src/print_service.py \
     --onefile \
     --distpath ./dist \
     --add-data "config.yaml:." \
-    --add-data "$ESCPOS_PATH/capabilities.json:escpos/" \
+    --add-data "/tmp/escpos_data/capabilities:escpos/capabilities" \
+    --add-data "$ESCPOS_PATH:escpos" \
+    --collect-submodules escpos \
     --hidden-import escpos.printer \
     --hidden-import escpos.escpos \
     --hidden-import escpos.capabilities \

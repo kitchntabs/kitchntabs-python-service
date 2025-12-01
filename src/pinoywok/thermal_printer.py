@@ -341,7 +341,61 @@ class ThermalPrinter:
         return image
     
     def _image_to_raster(self, image: Image.Image) -> bytes:
-        """Convert image to ESC/POS raster format."""
+        """Convert image to ESC/POS raster format using ESC * bit-image mode.
+        
+        This uses the more widely compatible ESC * (bit image) command
+        instead of GS v 0 (raster mode) which some cheap printers don't support well.
+        """
+        img = self._prepare_image(image)
+        
+        width = img.width
+        height = img.height
+        pixels = list(img.getdata())
+        
+        data = bytearray()
+        
+        # Use ESC * m nL nH (bit image mode)
+        # Mode 0 = 8-dot single density (best compatibility)
+        # Mode 1 = 8-dot double density
+        # Mode 32 = 24-dot single density
+        # Mode 33 = 24-dot double density
+        
+        # We'll use 24-dot mode (mode 33) for better quality
+        bytes_per_column = 3  # 24 dots = 3 bytes
+        
+        # Process image in 24-row strips
+        for y_start in range(0, height, 24):
+            # ESC * 33 nL nH - select 24-dot double density bit image
+            n = width
+            nL = n & 0xff
+            nH = (n >> 8) & 0xff
+            data.extend([0x1b, 0x2a, 33, nL, nH])
+            
+            # For each column in this strip
+            for x in range(width):
+                column_data = [0, 0, 0]  # 3 bytes = 24 dots
+                
+                for dy in range(24):
+                    y = y_start + dy
+                    if y < height:
+                        pixel = pixels[y * width + x]
+                        if pixel == 0:  # Black pixel
+                            byte_idx = dy // 8
+                            bit_idx = 7 - (dy % 8)
+                            column_data[byte_idx] |= (1 << bit_idx)
+                
+                data.extend(column_data)
+            
+            # Line feed after each strip
+            data.append(0x0a)
+        
+        return bytes(data)
+    
+    def _image_to_raster_gsv0(self, image: Image.Image) -> bytes:
+        """Convert image to ESC/POS raster format using GS v 0 command.
+        
+        This is the newer raster format but not all printers support it well.
+        """
         img = self._prepare_image(image)
         
         width_bytes = (img.width + 7) // 8
@@ -437,20 +491,34 @@ class ThermalPrinter:
         if not _PYUSB_AVAILABLE:
             print("Error: pyusb not available. Install with: pip install pyusb")
             return False
-            
+        
+        dev = None
+        reattach_kernel = False
+        
         try:
             dev = usb.core.find(idVendor=self.vendor_id, idProduct=self.product_id)
             if dev is None:
                 print(f"Error: Printer not found (VID:{hex(self.vendor_id)} PID:{hex(self.product_id)})")
                 return False
             
-            print(f"Found printer: {dev.product} by {dev.manufacturer}")
+            # Try to get printer info, but don't fail if not available
+            try:
+                print(f"Found printer: {dev.product} by {dev.manufacturer}")
+            except:
+                print(f"Found printer: VID={hex(self.vendor_id)} PID={hex(self.product_id)}")
             
             # Detach kernel driver if attached
             try:
                 if dev.is_kernel_driver_active(0):
                     dev.detach_kernel_driver(0)
+                    reattach_kernel = True
                     print("Detached kernel driver")
+            except Exception as e:
+                print(f"Note: kernel driver detach: {e}")
+            
+            # Reset device to clear any previous state
+            try:
+                dev.reset()
             except:
                 pass
             
@@ -459,6 +527,12 @@ class ThermalPrinter:
                 dev.set_configuration()
             except usb.core.USBError:
                 pass  # Already configured
+            
+            # Claim the interface explicitly
+            try:
+                usb.util.claim_interface(dev, 0)
+            except:
+                pass
             
             # Find OUT endpoint
             cfg = dev.get_active_configuration()
@@ -471,20 +545,26 @@ class ThermalPrinter:
             
             ep_addr = ep_out.bEndpointAddress if ep_out else 0x01
             
-            # Initialize printer
-            dev.write(ep_addr, b'\x1b\x40')
+            # Initialize printer with full reset sequence
+            dev.write(ep_addr, b'\x1b\x40')  # ESC @ - Initialize
+            import time
+            time.sleep(0.1)
             
             # Convert and send image
             raster_data = self._image_to_raster(image)
             
-            # Send in chunks
-            packet_size = 512
+            # Send in smaller chunks for POS58 compatibility
+            packet_size = 64  # Smaller chunks for cheap printers
             for i in range(0, len(raster_data), packet_size):
-                dev.write(ep_addr, raster_data[i:i+packet_size])
+                chunk = raster_data[i:i+packet_size]
+                dev.write(ep_addr, chunk)
+                time.sleep(0.005)  # Small delay between chunks
             
             # Feed and cut
             dev.write(ep_addr, b'\n\n\n')
+            time.sleep(0.1)
             dev.write(ep_addr, b'\x1d\x56\x01')  # Partial cut
+            time.sleep(0.2)
             
             print(f"[OK] Printed via pyusb ({len(raster_data)} bytes)")
             return True
@@ -494,6 +574,24 @@ class ThermalPrinter:
             import traceback
             traceback.print_exc()
             return False
+            
+        finally:
+            # IMPORTANT: Always release the USB device
+            if dev is not None:
+                try:
+                    usb.util.release_interface(dev, 0)
+                except:
+                    pass
+                try:
+                    if reattach_kernel:
+                        dev.attach_kernel_driver(0)
+                except:
+                    pass
+                try:
+                    usb.util.dispose_resources(dev)
+                except:
+                    pass
+                print("USB device released")
     
     def _print_device_file(self, image: Image.Image) -> bool:
         """Print directly to /dev/usb/lp0 device file."""
