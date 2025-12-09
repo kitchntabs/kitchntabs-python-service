@@ -71,8 +71,8 @@ function getConfigFileName(customMode, platform) {
   // Map common custom modes to their config files
   const configMap = {
     'kitchntabs.ngrok': 'config.kitchntabs.ngrok.yaml',
-    'kitchntabs.production': 'config.kitchntabs.prod.yaml',
-    'kitchntabs.prod': 'config.kitchntabs.prod.yaml',
+    'kitchntabs.production': 'config.kitchntabs.production.yaml',
+    'kitchntabs.prod': 'config.kitchntabs.production.yaml',
     'pinoywok.ngrok': 'config.dev.yaml',
     'pinoywok.production': 'config.prod.yaml',
     'dev': platform === 'darwin' ? 'config.dev.mac.yaml' : 'config.dev.yaml',

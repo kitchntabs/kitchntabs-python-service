@@ -135,14 +135,28 @@ async def websocket_handler(message_bytes):
                 speech_text = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
                 log(f"Speech Message: {speech_text}")
                 
-                # Check if this is an order/alarm notification that has frontend alarm
-                is_order_notification = json_message.get("data", {}).get("new") == "CONFIRMED"
-                is_alarm = json_message.get("data", {}).get("alarm") == "true" or json_message.get("data", {}).get("alarm") == True
+                # Check notification control flags from payload
+                notification_data = json_message.get("data", {})
                 
-                # Calculate delay - if order/alarm, wait for frontend alarm to complete
-                delay = ALARM_DURATION_SECONDS if (is_order_notification or is_alarm) else 0
+                # TTS flag - explicitly enable/disable text-to-speech
+                tts_enabled = notification_data.get("tts") == "true" or notification_data.get("tts") == True
+                
+                # Alarm flag - indicates frontend will play alarm sound
+                has_alarm = notification_data.get("alarm") == "true" or notification_data.get("alarm") == True
+                
+                # TTS delay - configurable delay before speaking (default to ALARM_DURATION if alarm is set)
+                tts_delay = notification_data.get("tts_delay")
+                if tts_delay is not None:
+                    try:
+                        delay = int(tts_delay)
+                    except (ValueError, TypeError):
+                        delay = ALARM_DURATION_SECONDS if has_alarm else 0
+                else:
+                    # Fallback: if alarm is set but no explicit delay, use default alarm duration
+                    delay = ALARM_DURATION_SECONDS if has_alarm else 0
+                
                 if delay > 0:
-                    log(f"🔔 Order/Alarm notification - TTS will start after {delay}s (non-blocking)")
+                    log(f"🔔 TTS will start after {delay}s delay (alarm: {has_alarm}, tts_enabled: {tts_enabled})")
                 
                 # Non-blocking: delay happens inside the audio thread
                 audio_player.thread_generate_audio(speech_text, "notification.mp3", delay_seconds=delay)
