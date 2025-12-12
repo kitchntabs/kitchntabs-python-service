@@ -158,8 +158,13 @@ async def websocket_handler(message_bytes):
                 if delay > 0:
                     log(f"🔔 TTS will start after {delay}s delay (alarm: {has_alarm}, tts_enabled: {tts_enabled})")
                 
-                # Non-blocking: delay happens inside the audio thread
-                audio_player.thread_generate_audio(speech_text, "notification.mp3", delay_seconds=delay)
+                # Only generate TTS audio if tts_enabled is true
+                if tts_enabled:
+                    # Non-blocking: delay happens inside the audio thread
+                    # Use None for audio_file to let audio_player use tempfile (avoids read-only filesystem issues)
+                    audio_player.thread_generate_audio(speech_text, None, delay_seconds=delay)
+                else:
+                    log(f"🔇 TTS disabled for this message (tts_enabled: {tts_enabled})")
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")

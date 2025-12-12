@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from pinoywok.args import args
 from pinoywok.config import config
 from pinoywok.logging import log
@@ -28,11 +29,17 @@ def speech_task(json,token,log,cfg):
         grandparent_folder = os.path.dirname(parent_folder)
         output = os.path.join(grandparent_folder,"./output/")
         if not os.path.exists(output):
-            os.mkdir(output)
+            try:
+                os.mkdir(output)
+            except OSError:
+                # If we can't create output folder (read-only filesystem), use temp dir
+                output = tempfile.gettempdir()
         try:
             audio_player = AudioPlayer()
             message = json.get("notificationPayload", {}).get("message", "")
-            audio_player.thread_generate_audio(message, "notification.mp3")
+            # Use temp directory for audio file to avoid read-only filesystem issues
+            audio_file = os.path.join(tempfile.gettempdir(), f"notification_{os.getpid()}.mp3")
+            audio_player.thread_generate_audio(message, audio_file)
             return
         except Exception as e:
             print(f"speech_task - Error Speaking: {e}", flush=True)
