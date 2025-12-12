@@ -35,7 +35,14 @@ dist/
 # Docker cross-compilation outputs (Linux x64, ARM64, ARMv7l)
 kt_service_builds/
 
-# Temporary config file
+# Temporary config files
 config.yaml
+config.*.yaml
+
+# Build logs
+build.log
+
+# Python cache (all locations)
 src/__pycache__/
 src/pinoywok/__pycache__/
+**/__pycache__/
