@@ -48,9 +48,9 @@ class AudioPlayer:
         try:
             # Wait for specified delay (e.g., for frontend alarm to complete)
             if delay_seconds > 0:
-                print(f"🔔 TTS waiting {delay_seconds}s for alarm to complete...")
+                print(f"[TTS] Waiting {delay_seconds}s for alarm to complete...")
                 time.sleep(delay_seconds)
-                print(f"✅ TTS delay complete - now generating speech")
+                print(f"[TTS] Delay complete - now generating speech")
             
             # Use temp directory if no file specified (for packaged apps)
             if audio_file is None:
@@ -76,7 +76,68 @@ class AudioPlayer:
             try:
                 self._audio_playing = True
                 temp_dir = tempfile.gettempdir()
+                import platform
+                system = platform.system()
                 
+                # Windows: Use multiple methods to avoid opening external programs
+                if system == 'Windows':
+                    # Method 1: pydub + winsound
+                    try:
+                        from pydub import AudioSegment
+                        import winsound
+                        
+                        if audio_file.endswith('.mp3'):
+                            audio = AudioSegment.from_mp3(audio_file)
+                            temp_wav = os.path.join(temp_dir, f"tts_audio_{os.getpid()}.wav")
+                            temp_files.append(temp_wav)
+                            audio.export(temp_wav, format="wav")
+                            winsound.PlaySound(temp_wav, winsound.SND_FILENAME)
+                        else:
+                            winsound.PlaySound(audio_file, winsound.SND_FILENAME)
+                        print("[TTS] Audio played via winsound")
+                        return
+                    except Exception as e:
+                        print(f"[TTS] winsound failed: {e}")
+                    
+                    # Method 2: Windows MCI (can play mp3 directly)
+                    try:
+                        import ctypes
+                        from ctypes import wintypes
+                        
+                        winmm = ctypes.windll.winmm
+                        mci_send = winmm.mciSendStringW
+                        mci_send.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.UINT, wintypes.HANDLE]
+                        mci_send.restype = wintypes.DWORD
+                        
+                        buf = ctypes.create_unicode_buffer(255)
+                        audio_path = audio_file.replace('/', '\\')
+                        mci_send(f'open "{audio_path}" type mpegvideo alias tts_audio', buf, 254, 0)
+                        mci_send('play tts_audio wait', buf, 254, 0)
+                        mci_send('close tts_audio', buf, 254, 0)
+                        print("[TTS] Audio played via Windows MCI")
+                        return
+                    except Exception as e:
+                        print(f"[TTS] Windows MCI failed: {e}")
+                    
+                    # Method 3: simpleaudio
+                    try:
+                        from pydub import AudioSegment
+                        audio = AudioSegment.from_mp3(audio_file)
+                        temp_wav = os.path.join(temp_dir, f"temp_audio_{os.getpid()}.wav")
+                        temp_files.append(temp_wav)
+                        audio.export(temp_wav, format="wav")
+                        wave_obj = sa.WaveObject.from_wave_file(temp_wav)
+                        play_obj = wave_obj.play()
+                        play_obj.wait_done()
+                        print("[TTS] Audio played via simpleaudio")
+                        return
+                    except Exception as e:
+                        print(f"[TTS] simpleaudio failed: {e}")
+                    
+                    print("[TTS] ERROR: All Windows audio methods failed")
+                    return
+                
+                # Non-Windows platforms
                 if PITCH_SHIFT_AVAILABLE:
                     # Use librosa + audiomentations for pitch shifting
                     sound, sr = librosa.load(audio_file)

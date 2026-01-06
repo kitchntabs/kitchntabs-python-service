@@ -21,7 +21,11 @@ import time
 def log(message):
     """Helper function to log messages with timestamp"""
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] {message}", flush=True)
+    try:
+        print(f"[{timestamp}] {message}", flush=True)
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        safe_message = str(message).encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+        print(f"[{timestamp}] {safe_message}", flush=True)
 
 def speak(message, lang='es'):
     """
@@ -71,6 +75,101 @@ def play_audio(audio_file):
     """
     Play an audio file using available system method
     """
+    import platform
+    system = platform.system()
+    
+    if system == 'Windows':
+        # On Windows, try multiple methods to avoid opening external programs
+        
+        # Method 1: Use pydub + winsound (requires ffmpeg for mp3)
+        try:
+            from pydub import AudioSegment
+            import winsound
+            
+            # Convert mp3 to wav
+            audio = AudioSegment.from_mp3(audio_file)
+            wav_file = audio_file.replace('.mp3', '.wav')
+            audio.export(wav_file, format='wav')
+            
+            # Play the WAV file directly
+            winsound.PlaySound(wav_file, winsound.SND_FILENAME)
+            
+            # Clean up wav file
+            try:
+                os.remove(wav_file)
+            except:
+                pass
+            log("Audio played via winsound + pydub")
+            return
+        except Exception as e:
+            log(f"Winsound+pydub failed: {e}")
+        
+        # Method 2: Try simpleaudio with pydub conversion
+        try:
+            import simpleaudio as sa
+            from pydub import AudioSegment
+            
+            audio = AudioSegment.from_mp3(audio_file)
+            wav_file = audio_file.replace('.mp3', '.wav')
+            audio.export(wav_file, format='wav')
+            
+            wave_obj = sa.WaveObject.from_wave_file(wav_file)
+            play_obj = wave_obj.play()
+            play_obj.wait_done()
+            
+            try:
+                os.remove(wav_file)
+            except:
+                pass
+            log("Audio played via simpleaudio + pydub")
+            return
+        except Exception as e:
+            log(f"Simpleaudio+pydub failed: {e}")
+        
+        # Method 3: Try pygame (can handle mp3 directly)
+        try:
+            import pygame
+            pygame.mixer.init()
+            pygame.mixer.music.load(audio_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            pygame.mixer.quit()
+            log("Audio played via pygame")
+            return
+        except Exception as e:
+            log(f"Pygame failed: {e}")
+        
+        # Method 4: Use Windows Media Control (no external window)
+        try:
+            import ctypes
+            from ctypes import wintypes
+            
+            winmm = ctypes.windll.winmm
+            
+            # MCI command to play mp3
+            mci_send = winmm.mciSendStringW
+            mci_send.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.UINT, wintypes.HANDLE]
+            mci_send.restype = wintypes.DWORD
+            
+            buf = ctypes.create_unicode_buffer(255)
+            
+            # Open and play the audio file
+            audio_path = audio_file.replace('/', '\\')
+            mci_send(f'open "{audio_path}" type mpegvideo alias tts_audio', buf, 254, 0)
+            mci_send('play tts_audio wait', buf, 254, 0)
+            mci_send('close tts_audio', buf, 254, 0)
+            
+            log("Audio played via Windows MCI")
+            return
+        except Exception as e:
+            log(f"Windows MCI failed: {e}")
+        
+        # If all Windows methods fail, log error but DON'T open external program
+        log("ERROR: All Windows audio playback methods failed. Audio will not play.")
+        return
+    
+    # Non-Windows platforms (macOS, Linux)
     try:
         # Try simpleaudio first (cross-platform)
         try:
@@ -117,9 +216,7 @@ def play_audio(audio_file):
         
         # Fallback: Use system commands
         import subprocess
-        import platform
         
-        system = platform.system()
         if system == 'Darwin':  # macOS
             subprocess.run(['afplay', audio_file], check=True)
         elif system == 'Linux':
@@ -131,10 +228,6 @@ def play_audio(audio_file):
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     continue
             log("Warning: No audio player found on Linux")
-        elif system == 'Windows':
-            # Use Windows Media Player
-            os.startfile(audio_file)
-            time.sleep(2)  # Wait for playback
             
     except Exception as e:
         log(f"Error playing audio: {e}")

@@ -156,7 +156,7 @@ async def websocket_handler(message_bytes):
                     delay = ALARM_DURATION_SECONDS if has_alarm else 0
                 
                 if delay > 0:
-                    log(f"🔔 TTS will start after {delay}s delay (alarm: {has_alarm}, tts_enabled: {tts_enabled})")
+                    log(f"[TTS] Will start after {delay}s delay (alarm: {has_alarm}, tts_enabled: {tts_enabled})")
                 
                 # Only generate TTS audio if tts_enabled is true
                 if tts_enabled:
@@ -164,7 +164,7 @@ async def websocket_handler(message_bytes):
                     # Use None for audio_file to let audio_player use tempfile (avoids read-only filesystem issues)
                     audio_player.thread_generate_audio(speech_text, None, delay_seconds=delay)
                 else:
-                    log(f"🔇 TTS disabled for this message (tts_enabled: {tts_enabled})")
+                    log(f"[TTS] Disabled for this message (tts_enabled: {tts_enabled})")
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")
@@ -269,7 +269,9 @@ async def receive_remote_ws_messages(socket):
             try:
                 # Wait for a message
                 message = await socket.recv()
-                log(f"Received message: {message}")
+                # Clean message for logging to avoid Unicode issues
+                clean_message = unicodedata.normalize('NFKD', message).encode('ascii', 'ignore').decode('ascii')
+                log(f"Received message: {clean_message}")
                 # Parse the message
                 try:
                     message_data = json.loads(message)

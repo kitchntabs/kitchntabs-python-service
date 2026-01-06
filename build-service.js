@@ -198,7 +198,7 @@ function buildService(args) {
   const dataSep = osPlatform === 'win32' ? ';' : ':';
 
   // Hidden imports needed for proper bundling
-  const hiddenImports = [
+  const baseHiddenImports = [
     'jaraco',
     'jaraco.text',
     'jaraco.functools', 
@@ -216,6 +216,16 @@ function buildService(args) {
     'packaging.version',
     'packaging.specifiers',
     'packaging.requirements',
+  ];
+
+  // Additional imports for TTS service
+  const ttsHiddenImports = [
+    'simpleaudio',
+    'pydub',
+    'playsound',
+    'winsound',
+    'ctypes',
+    'ctypes.wintypes',
   ];
 
   // Packages that need all submodules collected
@@ -236,7 +246,18 @@ function buildService(args) {
   for (const service of SERVICES) {
     console.log(`\n🏗️  Building ${service.name}...`);
     
+    // Set hidden imports based on service
+    let hiddenImports = [...baseHiddenImports];
+    if (service.name === 'tts_service') {
+      hiddenImports = hiddenImports.concat(ttsHiddenImports);
+    }
+    
     try {
+      // Set hidden imports based on service
+      let hiddenImports = [...baseHiddenImports];
+      if (service.name === 'tts_service') {
+        hiddenImports = hiddenImports.concat(ttsHiddenImports);
+      }
       // Build command differently for Windows vs Unix
       if (osPlatform === 'win32') {
         // On Windows/PowerShell, use & operator for paths with spaces
