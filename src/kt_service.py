@@ -119,17 +119,29 @@ async def websocket_handler(message_bytes):
             if "print" in message_type:
                 # Handle nested data structure from Laravel notifications
                 inner_data = json_message.get("data", {})
-                tab_id = inner_data.get("tab_id", "")
-                # If tab_id not found at first level, check nested data
-                if not tab_id and isinstance(inner_data, dict):
-                    tab_id = inner_data.get("data", {}).get("tab_id", "")
-                log(f"Print Tab id: {tab_id}")
-                if tab_id:
-                    log(f"Calling print_order for tab {tab_id}...")
-                    print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)
-                    log(f"print_order completed for tab {tab_id}")
+                
+                # Check if this is a test print (test flag is set)
+                is_test = inner_data.get("test", False)
+                if isinstance(is_test, str):
+                    is_test = is_test.lower() == "true"
+                
+                if is_test:
+                    log("Test print requested - printing test page")
+                    from print_service import print_test_page
+                    print_test_page()
                 else:
-                    log("ERROR: No tab_id found in message!")
+                    # Regular print with tab_id
+                    tab_id = inner_data.get("tab_id", "")
+                    # If tab_id not found at first level, check nested data
+                    if not tab_id and isinstance(inner_data, dict):
+                        tab_id = inner_data.get("data", {}).get("tab_id", "")
+                    log(f"Print Tab id: {tab_id}")
+                    if tab_id:
+                        log(f"Calling print_order for tab {tab_id}...")
+                        print_order(tab_id, _args.token.strip('"'), _args.log, _args.config)
+                        log(f"print_order completed for tab {tab_id}")
+                    else:
+                        log("ERROR: No tab_id found in message!")
             if "speech" in message_type:
                 audio_player = AudioPlayer()
                 speech_text = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
