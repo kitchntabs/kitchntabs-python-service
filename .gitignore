@@ -30,6 +30,8 @@ Thumbs.db
 
 # PyInstaller build outputs (too large for GitHub)
 *.spec
+*.spec.bkup
+*.bkup
 kt_service/
 dist/
 
