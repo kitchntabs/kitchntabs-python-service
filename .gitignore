@@ -1,48 +1,51 @@
+# Python
 build
-log.txt
 pw_python_env
 service
-ws_service.spec
-ws_service.spec.bkup
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Environment and configuration
 .env
+config.yaml
+config.*.yaml
 
 # OS files
 .DS_Store
+Thumbs.db
 
-# Local development settings
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Local environment
 /pw_env
 *.dll
 /output
 
 # PyInstaller build outputs (too large for GitHub)
-kt_service.spec
-print_service.spec
-tts_service.spec
-
-# Native build outputs (macOS/Windows)
+*.spec
 kt_service/
 dist/
 
+# Build artifacts
+build.log
+.build_hash
+*.pyc
+
 # Docker cross-compilation outputs (Linux x64, ARM64, ARMv7l)
 kt_service_builds/
-
-# Temporary config files
-config.yaml
-config.*.yaml
-
-# Build logs
-build.log
 
 # Python cache (all locations)
 src/__pycache__/
 src/pinoywok/__pycache__/
 **/__pycache__/
+
+# Logs
+log.txt
+*.log
