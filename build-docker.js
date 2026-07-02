@@ -56,8 +56,8 @@ const ARCH_CONFIG = {
 // Config file mapping
 const CONFIG_MAP = {
   ngrok: 'config.kitchntabs.ngrok.yaml',
-  prod: 'config.kitchntabs.prod.yaml',
-  production: 'config.kitchntabs.prod.yaml',
+  prod: 'config.kitchntabs.production.yaml',
+  production: 'config.kitchntabs.production.yaml',
   dev: 'config.dev.yaml'
 };
 
@@ -118,45 +118,86 @@ function checkDocker() {
   }
 }
 
-// Setup QEMU for multi-architecture builds
-function setupQemu() {
-  console.log('🔧 Setting up QEMU for multi-arch builds...');
-  
+// Detect the Docker daemon's native platform, e.g. "linux/arm64" (Mac M1) or
+// "linux/amd64" (Windows/Intel). QEMU + a docker-container builder are only
+// needed when a target platform differs from this.
+function getHostPlatform() {
   try {
-    // Check buildx
+    const arch = execSync('docker version --format "{{.Server.Arch}}"', { encoding: 'utf8' }).trim();
+    if (arch) return `linux/${arch}`; // docker reports amd64 / arm64
+  } catch (error) {
+    // fall through to node's arch
+  }
+  const nodeArch = process.arch === 'x64' ? 'amd64' : process.arch;
+  return `linux/${nodeArch}`;
+}
+
+// Find the built-in Docker Desktop builder (driver "docker"). It builds the
+// host-native platform directly — no QEMU, no docker-container builder — which
+// is both faster and avoids the fragile docker-container/buildkit path.
+function getNativeBuilder() {
+  try {
+    const out = execSync('docker buildx ls', { encoding: 'utf8' });
+    for (const raw of out.split('\n')) {
+      // Builder rows start at column 0; node rows are indented or start with "\_".
+      if (!raw || /^\s/.test(raw) || raw.includes('\\_')) continue;
+      const cols = raw.trim().split(/\s+/);
+      const name = (cols[0] || '').replace(/\*$/, '');
+      const driver = cols[1] || '';
+      if (driver === 'docker') return name;
+    }
+  } catch (error) {
+    // fall through
+  }
+  return 'default';
+}
+
+// Ensure buildx is available. Returns false if not.
+function checkBuildx() {
+  try {
     execSync('docker buildx version', { stdio: 'pipe' });
+    return true;
   } catch (error) {
     console.error('❌ Docker buildx not available. Please update Docker Desktop.');
     return false;
   }
+}
 
-  try {
-    // Check if builder exists
-    execSync('docker buildx inspect kt-builder', { stdio: 'pipe' });
-    execSync('docker buildx use kt-builder', { stdio: 'pipe' });
-  } catch (error) {
-    // Create builder
-    console.log('Creating new buildx builder...');
-    execSync('docker buildx create --name kt-builder --use --bootstrap', { stdio: 'inherit' });
+// Resolve which buildx builder to use for a given target platform, preparing
+// QEMU + a docker-container builder only when cross-architecture emulation is
+// actually required (target platform != host platform).
+function resolveBuilder(targetPlatform, hostPlatform) {
+  if (targetPlatform === hostPlatform) {
+    const builder = getNativeBuilder();
+    console.log(`🖥️  Native build (${targetPlatform}) — using builder "${builder}" (no QEMU needed)`);
+    return builder;
   }
 
-  // Register QEMU handlers
+  console.log(`🔧 Cross-arch build (${targetPlatform} on ${hostPlatform}) — setting up QEMU + docker-container builder...`);
+
+  // Register QEMU handlers so the emulated platform can run.
   try {
-    execSync('docker run --rm --privileged multiarch/qemu-user-static --reset -p yes', { 
+    execSync('docker run --rm --privileged multiarch/qemu-user-static --reset -p yes', {
       stdio: 'pipe',
-      timeout: 60000 
+      timeout: 60000
     });
   } catch (error) {
-    // This might fail on some systems but that's okay
-    console.log('⚠️  QEMU registration skipped (may already be configured)');
+    console.log('   ⚠️  QEMU registration skipped (may already be configured)');
   }
 
-  console.log('✅ QEMU setup complete');
-  return true;
+  // Ensure a docker-container builder exists (required for emulated + --load).
+  try {
+    execSync('docker buildx inspect kt-builder', { stdio: 'pipe' });
+  } catch (error) {
+    console.log('   Creating buildx builder "kt-builder"...');
+    execSync('docker buildx create --name kt-builder --driver docker-container --bootstrap', { stdio: 'inherit' });
+  }
+
+  return 'kt-builder';
 }
 
 // Build for a specific architecture
-async function buildArch(arch, configFile, cleanImages) {
+async function buildArch(arch, configFile, cleanImages, hostPlatform) {
   const config = ARCH_CONFIG[arch];
   if (!config) {
     console.error(`❌ Unknown architecture: ${arch}`);
@@ -178,11 +219,16 @@ async function buildArch(arch, configFile, cleanImages) {
   const startTime = Date.now();
 
   try {
+    // Pick the builder for this target: native (default docker builder) when the
+    // target matches the host arch, else QEMU + docker-container.
+    const builder = resolveBuilder(config.platform, hostPlatform);
+
     // Build Docker image
-    console.log('📦 Building Docker image (this may take a while for ARM)...');
-    
+    console.log('📦 Building Docker image (this may take a while for emulated ARM)...');
+
     const buildCmd = [
       'docker', 'buildx', 'build',
+      '--builder', builder,
       '--no-cache',
       '--platform', config.platform,
       '--build-arg', `CONFIG_FILE=${configFile}`,
@@ -334,10 +380,14 @@ async function main() {
     process.exit(1);
   }
 
-  // Setup QEMU
-  if (!setupQemu()) {
+  // Ensure buildx is available (QEMU/emulation is set up per-arch, only when needed).
+  if (!checkBuildx()) {
     process.exit(1);
   }
+
+  // Detect host platform so each arch can choose native vs emulated build.
+  const hostPlatform = getHostPlatform();
+  console.log(`🖥️  Docker host platform: ${hostPlatform}`);
 
   // Determine architectures to build
   let architectures = [];
@@ -358,7 +408,7 @@ async function main() {
   // Build each architecture
   const failed = [];
   for (const arch of architectures) {
-    const success = await buildArch(arch, configFile, args.cleanImages);
+    const success = await buildArch(arch, configFile, args.cleanImages, hostPlatform);
     if (!success) {
       failed.push(arch);
     }

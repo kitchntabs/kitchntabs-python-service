@@ -103,9 +103,15 @@ RUN ESCPOS_PATH=$(cat /tmp/escpos_path | cut -d= -f2) && \
     --clean
 
 # 3. tts_service (text-to-speech service)
+# tts_service is a headless CLI (gTTS + audio playback) with no GUI. Exclude
+# tkinter/_tkinter so PyInstaller's _tkinter hook doesn't try to bundle Tcl/Tk
+# data files (absent on the slim base image), which crashes with
+# "TypeError: expected str, bytes or os.PathLike object, not NoneType".
 RUN python -m PyInstaller ./src/tts_service.py \
     --onefile \
     --distpath ./dist \
+    --exclude-module tkinter \
+    --exclude-module _tkinter \
     --hidden-import jaraco \
     --hidden-import jaraco.text \
     --hidden-import jaraco.functools \

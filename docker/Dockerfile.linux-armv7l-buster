@@ -116,6 +116,8 @@ RUN . /tmp/escpos_path && \
 RUN python -m PyInstaller ./src/tts_service.py \
     --onefile \
     --distpath ./dist \
+    --exclude-module tkinter \
+    --exclude-module _tkinter \
     --noconfirm \
     --clean
 
