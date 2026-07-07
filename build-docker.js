@@ -254,7 +254,7 @@ async function buildArch(arch, configFile, cleanImages, hostPlatform) {
     ).trim();
 
     // Services to extract
-    const services = ['kt_service', 'print_service', 'tts_service'];
+    const services = ['kt_service', 'print_service', 'tts_service', 'kt_status_tray'];
     
     // Copy all services from container
     for (const service of services) {
@@ -334,7 +334,7 @@ function organizeBuilds(architectures) {
   const ktServiceDir = path.join(SCRIPT_DIR, 'kt_service');
   fs.mkdirSync(ktServiceDir, { recursive: true });
 
-  const services = ['kt_service', 'print_service', 'tts_service'];
+  const services = ['kt_service', 'print_service', 'tts_service', 'kt_status_tray'];
 
   for (const arch of architectures) {
     console.log(`   ${arch}:`);
@@ -453,7 +453,7 @@ async function main() {
   console.log('');
   console.log('📝 Next steps:');
   console.log('   The binaries are in kt_service_builds/<arch>/');
-  console.log('   Services: kt_service, print_service, tts_service');
+  console.log('   Services: kt_service, print_service, tts_service, kt_status_tray');
   console.log('');
   console.log('   Run the Debian build:');
   console.log('   cd ../dash-frontend && pnpm release:electron:kitchntabs:debian:dev');

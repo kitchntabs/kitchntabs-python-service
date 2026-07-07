@@ -41,3 +41,7 @@ setuptools<70.0.0
 jaraco.text
 jaraco.functools
 jaraco.context
+
+# System tray application (kt_status_tray) - manylinux aarch64 wheels available
+PyQt6==6.7.1
+pystray==0.19.5

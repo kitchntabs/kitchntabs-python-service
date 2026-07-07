@@ -74,10 +74,17 @@ RUN python -m PyInstaller ./src/tts_service.py \
     --noconfirm \
     --clean
 
-# Output directory - copy all 3 services
+# 4. kt_status_tray (system tray UI) - PyQt6 + pystray
+RUN python -m PyInstaller PyInstaller/kt_status_tray.spec \
+    --distpath ./dist \
+    --noconfirm \
+    --clean
+
+# Output directory - copy all 4 services
 RUN mkdir -p /output && \
     cp ./dist/kt_service /output/kt_service && \
     cp ./dist/print_service /output/print_service && \
-    cp ./dist/tts_service /output/tts_service
+    cp ./dist/tts_service /output/tts_service && \
+    cp ./dist/kt_status_tray /output/kt_status_tray || echo "kt_status_tray build optional"
 
 CMD ["cp", "-r", "/output/.", "/host-output/"]

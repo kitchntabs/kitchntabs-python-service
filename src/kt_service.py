@@ -14,6 +14,7 @@ import websockets
 import contextlib
 # External function reference (assumed to be imported)
 from print_service import print_order
+from status_manager import StatusManager
 
 from pinoywok.args import args
 from pinoywok.config import config
@@ -26,6 +27,8 @@ has_internet_connection = True
 remote_ws_service = None  # remote ws service
 local_ws_service = None
 audio_player = None  # Global audio player instance
+status_manager = None  # Global status manager instance
+connection_start_time = time.time()  # Track when service connected
 
 # CONSTANTS
 ENABLE_PING = False
@@ -339,10 +342,43 @@ async def send_remote_websocket(socket, message):
     except Exception as e:
         log(f"Error sending message to remote WebSocket: {e}")
 
+async def export_status_periodically():
+    """Periodically export kt_service status to status.json for system tray"""
+    global status_manager, remote_ws_service, has_internet_connection, connection_start_time
+
+    try:
+        status_manager = StatusManager()
+        log("Status manager initialized")
+    except Exception as e:
+        log(f"Warning: Could not initialize status manager: {e}")
+        return
+
+    while True:
+        try:
+            if status_manager:
+                # Calculate uptime
+                uptime_seconds = int(time.time() - connection_start_time)
+
+                # Update status
+                status_manager.update_state(
+                    connected=(remote_ws_service is not None and remote_ws_service.open),
+                    uptime_seconds=uptime_seconds
+                )
+
+                # Export status to file
+                status_manager.export_status()
+                log("Status exported to file")
+
+            await asyncio.sleep(5)  # Export every 5 seconds
+        except Exception as e:
+            log(f"Error exporting status: {e}")
+            await asyncio.sleep(5)
+
 async def main():
     global has_internet_connection
     global remote_ws_service
     global audio_player
+    global connection_start_time
 
     # Config
     args.set_key("token", sys.argv[1] if len(sys.argv) > 1 else None)
@@ -371,6 +407,9 @@ async def main():
     # Start the internet connection checker as a background task
     connection_checker_task = asyncio.create_task(check_internet_connection())
 
+    # Start the status exporter as a background task
+    status_export_task = asyncio.create_task(export_status_periodically())
+
     try:
         while True:
             if has_internet_connection:
@@ -390,6 +429,7 @@ async def main():
                                 log(f"REMOTE_WS: Connected successfully")
                                 log(f"REMOTE_WS Type: {type(remote_ws_service)}")
                                 log(f"REMOTE_WS State: {remote_ws_service.state}")
+                                connection_start_time = time.time()  # Reset connection time
                             else:
                                 log("REMOTE_WS: Connection failed")
                                 await asyncio.sleep(5)  # Wait before trying again

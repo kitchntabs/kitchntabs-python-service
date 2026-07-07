@@ -121,7 +121,13 @@ RUN python -m PyInstaller ./src/tts_service.py \
     --noconfirm \
     --clean
 
-# Output directory - copy all 3 services
+# NOTE: kt_status_tray (system tray UI) is intentionally NOT built for Buster.
+# It requires PyQt6/Qt6, which has no working wheels for GLIBC 2.28 - attempting
+# to install it here would either fail the whole build or need a lengthy source
+# compile. Buster targets legacy Pi OS installs and runs kt_service headless;
+# see requirements-armv7l.txt (Bullseye) for the supported tray build.
+
+# Output directory - copy the 3 core services (no tray on this legacy target)
 RUN mkdir -p /output && \
     cp ./dist/kt_service /output/kt_service && \
     cp ./dist/print_service /output/print_service && \

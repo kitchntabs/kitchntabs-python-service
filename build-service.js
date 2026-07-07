@@ -45,6 +45,14 @@ const SERVICES = [
     source: './src/print_service.py',
     needsEscpos: true,
     needsConfig: true
+  },
+  {
+    name: 'kt_status_tray',
+    source: './src/kt_status_tray.py',
+    needsEscpos: false,
+    needsConfig: false,
+    // GUI app: suppress the console window (--windowed == --noconsole on Windows)
+    windowed: true
   }
 ];
 
@@ -288,9 +296,14 @@ function buildService(args) {
           pyinstallerArgs.push('--add-data', `${escposPath}${dataSep}escpos`);
           pyinstallerArgs.push('--collect-data', 'escpos');
         }
-        
+
+        // GUI apps (kt_status_tray) shouldn't pop a console window
+        if (service.windowed) {
+          pyinstallerArgs.push('--windowed');
+        }
+
         pyinstallerArgs.push('--noconfirm', '--clean');
-        
+
         console.log(`   Command: & "${pythonExe}" ${pyinstallerArgs.join(' ')}`);
         
         // Use spawn for better argument handling on Windows
@@ -333,9 +346,14 @@ function buildService(args) {
           pyinstallerParts.push(`--add-data "${escposPath}${dataSep}escpos"`);
           pyinstallerParts.push('--collect-data escpos');
         }
-        
+
+        // GUI apps (kt_status_tray) shouldn't pop a console/terminal window
+        if (service.windowed) {
+          pyinstallerParts.push('--windowed');
+        }
+
         pyinstallerParts.push('--noconfirm', '--clean');
-        
+
         const pyinstallerCmd = pyinstallerParts.filter(Boolean).join(' ');
         
         console.log(`   Command: ${pyinstallerCmd}`);

@@ -89,10 +89,23 @@ RUN python -m PyInstaller ./src/tts_service.py \
     --noconfirm \
     --clean
 
-# Output directory - copy all 3 services
+# 4. kt_status_tray (system tray UI) - PyQt6 + pystray
+# PyQt6 has no official PyPI wheels for armv7l; piwheels hosts community-built
+# ones for Bullseye but availability can lag behind releases. Install and build
+# best-effort so a missing wheel degrades to "no tray" instead of failing the
+# whole image (kt_service/print_service/tts_service must always succeed).
+RUN pip install --no-cache-dir --prefer-binary PyQt6==6.7.1 pystray==0.19.5 \
+    && python -m PyInstaller PyInstaller/kt_status_tray.spec \
+       --distpath ./dist \
+       --noconfirm \
+       --clean \
+    || echo "PyQt6/kt_status_tray unavailable for armv7l - skipping tray (kt_service unaffected)"
+
+# Output directory - copy all services (kt_status_tray only if it built above)
 RUN mkdir -p /output && \
     cp ./dist/kt_service /output/kt_service && \
     cp ./dist/print_service /output/print_service && \
-    cp ./dist/tts_service /output/tts_service
+    cp ./dist/tts_service /output/tts_service && \
+    (cp ./dist/kt_status_tray /output/kt_status_tray || echo "kt_status_tray not built - skipping")
 
 CMD ["cp", "-r", "/output/.", "/host-output/"]
