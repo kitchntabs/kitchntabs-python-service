@@ -146,40 +146,13 @@ async def websocket_handler(message_bytes):
                     else:
                         log("ERROR: No tab_id found in message!")
             if "speech" in message_type:
-                audio_player = AudioPlayer()
+                # TTS is triggered by the frontend (CustomNotificationsProcessing.tsx), which
+                # IPCs to tts_service on Electron platforms. kt_service used to *also* speak
+                # this message independently, causing every confirmed/alarm notification to
+                # play twice. Left as a log line only - do not re-add audio playback here
+                # without also removing the frontend's speak() call for the same event.
                 speech_text = json_message.get("data", {}).get("speech") or json_message.get("data", {}).get("message", "")
-                log(f"Speech Message: {speech_text}")
-                
-                # Check notification control flags from payload
-                notification_data = json_message.get("data", {})
-                
-                # TTS flag - explicitly enable/disable text-to-speech
-                tts_enabled = notification_data.get("tts") == "true" or notification_data.get("tts") == True
-                
-                # Alarm flag - indicates frontend will play alarm sound
-                has_alarm = notification_data.get("alarm") == "true" or notification_data.get("alarm") == True
-                
-                # TTS delay - configurable delay before speaking (default to ALARM_DURATION if alarm is set)
-                tts_delay = notification_data.get("tts_delay")
-                if tts_delay is not None:
-                    try:
-                        delay = int(tts_delay)
-                    except (ValueError, TypeError):
-                        delay = ALARM_DURATION_SECONDS if has_alarm else 0
-                else:
-                    # Fallback: if alarm is set but no explicit delay, use default alarm duration
-                    delay = ALARM_DURATION_SECONDS if has_alarm else 0
-                
-                if delay > 0:
-                    log(f"[TTS] Will start after {delay}s delay (alarm: {has_alarm}, tts_enabled: {tts_enabled})")
-                
-                # Only generate TTS audio if tts_enabled is true
-                if tts_enabled:
-                    # Non-blocking: delay happens inside the audio thread
-                    # Use None for audio_file to let audio_player use tempfile (avoids read-only filesystem issues)
-                    audio_player.thread_generate_audio(speech_text, None, delay_seconds=delay)
-                else:
-                    log(f"[TTS] Disabled for this message (tts_enabled: {tts_enabled})")
+                log(f"Speech Message (not spoken by kt_service - frontend handles TTS): {speech_text}")
     except json.JSONDecodeError:
         # If not JSON, assume it's a plain string, and create a 'standard' app format object with default action
         log("JSON Decode Error")
