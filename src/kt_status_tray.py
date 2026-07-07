@@ -266,13 +266,16 @@ class KtStatusTray:
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
 
         # Draw circle
         color = QColor("#7faa00") if connected else QColor("#ff6b6b")  # Green or red
-        painter.fillEllipse(10, 10, size - 20, size - 20, color)
+        painter.setBrush(color)
+        painter.drawEllipse(10, 10, size - 20, size - 20)
 
         # Draw center dot
-        painter.fillEllipse(size // 2 - 5, size // 2 - 5, 10, 10, QColor("white"))
+        painter.setBrush(QColor("white"))
+        painter.drawEllipse(size // 2 - 5, size // 2 - 5, 10, 10)
 
         painter.end()
 
